@@ -5,6 +5,8 @@ stages:
 
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  NEXUS_NAME: $NEXUS_USER
+  NEXUS_PASSWORD: $NEXUS_PASSWORD
 
 before_script:
   - chmod +x ./gradlew
@@ -21,5 +23,5 @@ distribution:
   artifacts:
     paths:
       - build/distributions/pico*.zip
-      - build/distibutions/pico*.tar
+      - build/distributions/pico*.tar
     expire_in: 1 week
