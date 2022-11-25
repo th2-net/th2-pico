@@ -81,7 +81,7 @@ class ImageExtractor(object):
                 *args_list])
         print()
         if(execution_result.returncode != 0 or not os.path.exists(out_dir)):
-            sys.exit()
+            sys.exit(1)
         return out_dir
     
     def __prepare_directory(self, dir):

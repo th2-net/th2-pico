@@ -128,8 +128,9 @@ if ! have_curl && ! have_wget; then
 fi
 
 image_spec="$1"
-image=$(echo $image_spec|  rev | cut -d':' -f2- | rev)
-ref=$(echo $image_spec| rev | cut -d':' -f-1 | rev)
+domain=$(echo $image_spec | cut -d'/' -f1)
+image=$(echo $image_spec  | cut -d'/' -f2- | cut -d':' -f1)
+ref=$(echo $image_spec|  rev | cut -d':' -f 1 | rev)
 echo "image and ref"
 echo $image
 echo $ref
@@ -176,27 +177,28 @@ fetch() {
     fi
 }
 
+fetch_with_credentials() {
+    if have_curl; then
+        if [ $# -eq 2 ]; then
+            set -- -H "$2" "$1"
+        elif [ $# -eq 3 ]; then
+            set -- -H "$2" -H "$3" "$1"
+        fi
+        curl -u "$REGISTRY_USER:$REGISTRY_PASSWORD" -sSL "$@"
+    else
+        if [ $# -eq 2 ]; then
+            set -- --header "$2" "$1"
+        elif [ $# -eq 3 ]; then
+            set -- --header "$2" --header "$3" "$1"
+        fi
+        wget --username "$REGISTRY_USER" --password "$REGISTRY_PASSWORD" -qO- "$@"
+    fi
+}
+
 # https://docs.docker.com/docker-hub/api/latest/#tag/repositories
-manifest_list_url="https://ghcr.io/v2/repositories/${image}/tags/${ref}"
-if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
-    manifest_list_url="https://ghcr.io/v2/repositories/${image}/tags/${ref}"
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    manifest_list_url="https://${image}/v2/repositories/tags/${ref}"
-else
-    echo "Unknown repository type: $REPOSITORY_TYPE"
-    exit 1
-fi
+manifest_list_url="https://${domain}/v2/repositories/${image}/tags/${ref}"
 
 auth_header="Authorization: Bearer $token"
-if [ "$REPOSITORY_TYPE" = "ghcr" ] ; then
-    auth_header="Authorization: Bearer $token"
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    base64_auth_string=$(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
-    auth_header="Authorization: Basic $base64_auth_string"
-else
-    echo "Unknown repository type: $REPOSITORY_TYPE"
-    exit 1
-fi
 v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 
 
@@ -205,7 +207,33 @@ v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 if [ "${PLATFORM}" = "${PLATFORM_DEFAULT}" ] || [ -z "${ref##sha256:*}" ]; then
     digest="${ref}"
 else
-    digest=$(fetch "${manifest_url} ${auth_header} ${v2_header}" |
+    if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+      digest=$(fetch "${manifest_url} ${auth_header} ${v2_header}" |
+          # Break up the single-line JSON output into separate lines by adding
+          # newlines before and after the chars '[', ']', '{', and '}'.
+          sed -e 's/\([][{}]\)/\n\1\n/g' |
+          # Extract the "images":[...] list.
+          sed -n '/"images":/,/]/ p' |
+          # Each image's details are now on a separate line, e.g.
+          # "architecture":"arm64","features":"","variant":"v8","digest":"sha256:054c85801c4cb41511b176eb0bf13a2c4bbd41611ddd70594ec3315e88813524","os":"linux","os_features":"","os_version":null,"size":828724,"status":"active","last_pulled":"2022-09-02T22:46:48.240632Z","last_pushed":"2022-09-02T00:42:45.69226Z"
+          # The image details are interspersed with lines of stray punctuation,
+          # so grep for an arbitrary string that must be in these lines.
+          grep architecture |
+          # Search for an image that matches the platform.
+          while read -r image; do
+              # Arch is probably most likely to be unique, so check that first.
+              arch="$(echo ${image} | extract 'architecture')"
+              if [ "${arch}" != "${ARCH}" ]; then continue; fi
+              os="$(echo ${image} | extract 'os')"
+              if [ "${os}" != "${OS}" ]; then continue; fi
+              variant="$(echo ${image} | extract 'variant')"
+              if [ "${variant}" = "${VARIANT}" ]; then
+                  echo ${image} | extract 'digest'
+                  break
+              fi
+          done)
+    elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+      digest=$(fetch_with_credentials "${manifest_url} ${v2_header}" |
         # Break up the single-line JSON output into separate lines by adding
         # newlines before and after the chars '[', ']', '{', and '}'.
         sed -e 's/\([][{}]\)/\n\1\n/g' |
@@ -229,6 +257,10 @@ else
                 break
             fi
         done)
+    else
+      echo "$REPOSITORY_TYPE not supported"
+      exit 1
+    fi
 fi
 if [ -n "${digest}" ]; then
     echo "Platform ${PLATFORM} resolved to '${digest}'..."
@@ -237,43 +269,28 @@ else
     exit 1
 fi
 
-manifest_url="https://ghcr.io/v2/${image}/manifests/${digest}"
-if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
-    manifest_url="https://ghcr.io/v2/${image}/manifests/${digest}"
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    manifest_url="https://${image}/v2/manifests/${digest}"
-else
-    echo "Unknown repository type: $REPOSITORY_TYPE"
-    exit 1
-fi
+manifest_url="https://${domain}/v2/${image}/manifests/${digest}"
 
-blobs_base_url="https://ghcr.io/v2/${image}/blobs"
-if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
-    blobs_base_url="https://ghcr.io/v2/${image}/blobs"
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    blobs_base_url="https://$image/v2/blobs"
-else
-    echo "Unknown repository type: $REPOSITORY_TYPE"
-    exit 1
-fi
+blobs_base_url="https://${domain}/v2/${image}/blobs"
 
 token=$(echo $TOKEN | base64)
 auth_header="Authorization: Bearer $token"
-if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
-    auth_header="Authorization: Bearer $token"
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    base64_auth_string=$(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
-    auth_header="Authorization: Basic $base64_auth_string"
-else
-    echo "Unknown repository type: $REPOSITORY_TYPE"
-    exit 1
-fi
 v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 echo "Getting image manifest for $image:$ref..."
-layers=$(fetch "${manifest_url}" "${auth_header}" "${v2_header}" |
-             # Extract `digest` values only after the `layers` section appears.
-             sed -n '/"layers":/,$ p' |
-             extract 'digest')
+if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+  layers=$(fetch "${manifest_url}" "${auth_header}" "${v2_header}" |
+               # Extract `digest` values only after the `layers` section appears.
+               sed -n '/"layers":/,$ p' |
+               extract 'digest')
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+  layers=$(fetch_with_credentials "${manifest_url}" "${v2_header}" |
+               # Extract `digest` values only after the `layers` section appears.
+               sed -n '/"layers":/,$ p' |
+               extract 'digest')
+else
+  echo "$REPOSITORY_TYPE not supported"
+  exit 1
+fi
 
 if [ -z "${layers}" ]; then
     echo "No layers returned. Verify that the image and ref are valid."
@@ -287,7 +304,14 @@ for i in $(seq 1 $NUMBER_OF_LAYERS); do
     echo $layer
     hash="${layer#sha256:}"
     echo "Fetching and extracting layer ${hash}..."
-    fetch "${blobs_base_url}/${layer}" "${auth_header}" | gzip -d | tar -C "${OUT_DIR}" -xf -
+    if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+      fetch "${blobs_base_url}/${layer}" "${auth_header}" | gzip -d | tar -C "${OUT_DIR}" -xf -
+    elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+      fetch_with_credentials "${blobs_base_url}/${layer}" | gzip -d | tar -C "${OUT_DIR}" -xf -
+    else
+      echo "$REPOSITORY_TYPE not supported"
+      exit 1
+    fi
     # Ref: https://github.com/moby/moby/blob/master/image/spec/v1.2.md#creating-an-image-filesystem-changeset
     #      https://github.com/moby/moby/blob/master/pkg/archive/whiteouts.go
     # Search for "whiteout" files to indicate files deleted in this layer.
