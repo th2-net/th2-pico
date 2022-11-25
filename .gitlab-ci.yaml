@@ -1,0 +1,25 @@
+image: openjdk:11
+
+stages:
+  - publish
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+before_script:
+  - chmod +x ./gradlew
+  - chmod +x ./docker_extractor.sh
+  - export GRADLE_USER_HOME=`pwd`/.gradle
+  - apt-get update
+  - apt-get install -y --no-install-recommends python3.9
+  - python3 docker_extractor.py
+
+distribution:
+  stage: publish
+  script:
+    - ./gradlew build
+  artifacts:
+    paths:
+      - build/distributions/pico*.zip
+      - build/distibutions/pico*.tar
+    expire_in: 1 week

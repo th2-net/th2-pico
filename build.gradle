@@ -1,0 +1,83 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.5.10'
+    id 'java'
+    id 'java-library'
+    id 'application'
+}
+
+ext {
+    sharedDir           = file('shared')
+
+    slf4jVersion        = '2.0.3'
+    log4jVersion        = '2.19.0'
+}
+
+group 'com.exactpro.th2'
+version release_version
+
+repositories {
+    mavenCentral()
+    mavenCentral()
+}
+
+dependencies {
+    api platform('com.fasterxml.jackson:jackson-bom:2.13.4')
+    // https://mvnrepository.com/artifact/commons-cli/commons-cli
+    implementation 'commons-cli:commons-cli:1.5.0'
+
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    implementation "org.jetbrains.kotlin:kotlin-reflect"
+    implementation "io.github.microutils:kotlin-logging:1.7.+"
+
+    implementation("org.slf4j:slf4j-api:${slf4jVersion}")
+    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:${log4jVersion}")
+    implementation("org.apache.logging.log4j:log4j-1.2-api:${log4jVersion}")
+    implementation("org.apache.logging.log4j:log4j-api:${log4jVersion}")
+    implementation("org.apache.logging.log4j:log4j-core:${log4jVersion}")
+
+    implementation "com.fasterxml.jackson.core:jackson-core"
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-annotations")
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+applicationName = 'pico'
+application {
+    mainClassName = "com.exactpro.th2.pico.PicoKt"
+}
+
+distTar {
+    archiveName "${applicationName}.tar"
+    into("$applicationName\\bin") {
+        from '.'
+        include 'components/**'
+        include 'configs/**'
+    }
+}
+
+distZip {
+    archiveName "${applicationName}.zip"
+    into("$applicationName\\bin") {
+        from '.'
+        include 'components/**'
+        include 'configs/**'
+    }
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+test {
+    useJUnitPlatform()
+}
