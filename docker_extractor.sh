@@ -270,6 +270,7 @@ else
 fi
 v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 echo "Getting image manifest for $image:$ref..."
+echo $auth_header
 layers=$(fetch "${manifest_url}" "${auth_header}" "${v2_header}" |
              # Extract `digest` values only after the `layers` section appears.
              sed -n '/"layers":/,$ p' |

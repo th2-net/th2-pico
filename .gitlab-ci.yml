@@ -6,7 +6,7 @@ stages:
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
   NEXUS_NAME: $NEXUS_USER
-  NEXUS_PASSWORD: $NEXUS_PASSWORD
+  NEXUS_PASSWORD: $NEXUS_PASS
 
 before_script:
   - chmod +x ./gradlew
