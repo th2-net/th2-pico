@@ -16,7 +16,7 @@ before_script:
   - apt-get install -y --no-install-recommends python3.9
 
 extraction:
-  stage: extraction
+  stage: .pre
   script:
     - python3 extract.py
 
