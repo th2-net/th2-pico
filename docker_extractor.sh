@@ -128,12 +128,11 @@ if ! have_curl && ! have_wget; then
 fi
 
 image_spec="$1"
-image="${image_spec%%:*}"
-ref="${image_spec#*:}"
-if [ "${ref}" = "${image_spec}" ]; then
-    echo "Defaulting ref to tag 'latest'..."
-    ref=latest
-fi
+image=$(echo $image_spec|  rev | cut -d':' -f2- | rev)
+ref=$(echo $image_spec| rev | cut -d':' -f-1 | rev)
+echo "image and ref"
+echo $image
+echo $ref
 
 # Split platform (OS/arch/variant) into separate variables.
 # A platform specifier doesn't always include the `variant` component.
@@ -263,7 +262,7 @@ auth_header="Authorization: Bearer $token"
 if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
     auth_header="Authorization: Bearer $token"
 elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
-    base64_auth_string = $(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
+    base64_auth_string=$(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
     auth_header="Authorization: Basic $base64_auth_string"
 else
     echo "Unknown repository type: $REPOSITORY_TYPE"
