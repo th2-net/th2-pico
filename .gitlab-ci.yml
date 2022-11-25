@@ -12,7 +12,7 @@ before_script:
   - export GRADLE_USER_HOME=`pwd`/.gradle
   - apt-get update
   - apt-get install -y --no-install-recommends python3.9
-  - python3 extractor.py
+  - python3 extract.py
 
 distribution:
   stage: publish
