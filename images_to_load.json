@@ -1,6 +1,6 @@
 {
     "images": [
         "ghcr.io/th2-net/th2-mstore:4.0.0-th2-4253-jar-publishing-3513137351-0b2d0c6",
-        "nexus.exactpro.com/th2-accreditation-ui-backend:0.28.5-save-accreditation-results.469"
+        "nexus.exactpro.com:9000/datareader:latest"
     ]
 }

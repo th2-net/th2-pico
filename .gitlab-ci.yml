@@ -5,8 +5,8 @@ stages:
 
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-  REGISTRY_USER: $SOLUTION_REGISTRY_USER
-  REGISTRY_PASSWORD: $SOLUTION_REGISTRY_PASSWORD
+  REGISTRY_USER: $REGISTRY_USER
+  REGISTRY_PASSWORD: $REGISTRY_PASSWORD
 
 before_script:
   - chmod +x ./gradlew
