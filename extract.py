@@ -67,9 +67,13 @@ class ImageExtractor(object):
             if(self.image_name.__contains__(image_part)):
                 number_of_layers = 4
         out_dir = self.cwd + LIB_DIR + os.sep + self.image_name.split("/")[-1]
+        domain = "ghcr"
+        if(self.image_name.__contains__("nexus")):
+            domain = "nexus"
         args_list = [
             '-n', str(number_of_layers), 
             '-o', out_dir,
+            '-t', domain,
             self.image_name
         ]
         print("Started extraction of image {0}".format(self.image_name))

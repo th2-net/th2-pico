@@ -76,8 +76,8 @@ fi
 
 while getopts ':ho:p:n:t:' opt; do
     case $opt in
-        t) 
-            REPOSITORY_TYPE = ${OPTARG}
+        t)
+            REPOSITORY_TYPE=${OPTARG}
             ;;
         n)
             NUMBER_OF_LAYERS=${OPTARG}
@@ -129,10 +129,6 @@ fi
 
 image_spec="$1"
 image="${image_spec%%:*}"
-if [ "${image#*/}" = "${image}" ]; then
-    # Docker official images are in the 'library' namespace.
-    image="library/${image}"
-fi
 ref="${image_spec#*:}"
 if [ "${ref}" = "${image_spec}" ]; then
     echo "Defaulting ref to tag 'latest'..."
@@ -185,7 +181,7 @@ fetch() {
 manifest_list_url="https://ghcr.io/v2/repositories/${image}/tags/${ref}"
 if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
     manifest_list_url="https://ghcr.io/v2/repositories/${image}/tags/${ref}"
-elif ["$REPOSITORY_TYPE" = "nexus" ]; then
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
     manifest_list_url="https://${image}/v2/repositories/tags/${ref}"
 else
     echo "Unknown repository type: $REPOSITORY_TYPE"
@@ -195,8 +191,8 @@ fi
 auth_header="Authorization: Bearer $token"
 if [ "$REPOSITORY_TYPE" = "ghcr" ] ; then
     auth_header="Authorization: Bearer $token"
-elif ["$REPOSITORY_TYPE" = "nexus" ]; then
-    base64_auth_string = $(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+    base64_auth_string=$(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
     auth_header="Authorization: Basic $base64_auth_string"
 else
     echo "Unknown repository type: $REPOSITORY_TYPE"
@@ -245,7 +241,7 @@ fi
 manifest_url="https://ghcr.io/v2/${image}/manifests/${digest}"
 if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
     manifest_url="https://ghcr.io/v2/${image}/manifests/${digest}"
-elif ["$REPOSITORY_TYPE" = "nexus" ]; then
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
     manifest_url="https://${image}/v2/manifests/${digest}"
 else
     echo "Unknown repository type: $REPOSITORY_TYPE"
@@ -255,7 +251,7 @@ fi
 blobs_base_url="https://ghcr.io/v2/${image}/blobs"
 if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
     blobs_base_url="https://ghcr.io/v2/${image}/blobs"
-elif ["$REPOSITORY_TYPE" = "nexus" ]; then
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
     blobs_base_url="https://$image/v2/blobs"
 else
     echo "Unknown repository type: $REPOSITORY_TYPE"
@@ -266,7 +262,7 @@ token=$(echo $TOKEN | base64)
 auth_header="Authorization: Bearer $token"
 if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
     auth_header="Authorization: Bearer $token"
-elif ["$REPOSITORY_TYPE" = "nexus" ]; then
+elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
     base64_auth_string = $(echo "$NEXUS_NAME:$NEXUS_PASSWORD" | base64)
     auth_header="Authorization: Basic $base64_auth_string"
 else
@@ -275,6 +271,7 @@ else
 fi
 v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 echo "Getting image manifest for $image:$ref..."
+echo "${manifest_url}" "${auth_header}" "${v2_header}"
 layers=$(fetch "${manifest_url}" "${auth_header}" "${v2_header}" |
              # Extract `digest` values only after the `layers` section appears.
              sed -n '/"layers":/,$ p' |
