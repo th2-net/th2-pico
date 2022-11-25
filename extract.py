@@ -15,6 +15,7 @@
 #
 import shutil
 import os
+import sys
 import json
 import subprocess
 import tarfile
@@ -76,7 +77,7 @@ class ImageExtractor(object):
                 *args_list])
         print()
         if(execution_result.returncode != 0 or not os.path.exists(out_dir)):
-            raise RuntimeError(execution_result.stderr)
+            sys.exit()
         return out_dir
     
     def __prepare_directory(self, dir):
@@ -113,10 +114,10 @@ if __name__ == "__main__":
     for image in config.images:
         extractor = ImageExtractor(image, cwd)
         threads.append(threading.Thread(target=extractor.extract_and_prepare))
-    
+
     for x in threads:
         x.start()
-    
+
     for x in threads:
         x.join()
 
