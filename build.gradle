@@ -54,7 +54,7 @@ application {
 
 distTar {
     archiveName "${applicationName}.tar"
-    into("$applicationName\\bin") {
+    into("$applicationName/bin") {
         from '.'
         include 'components/**'
         include 'configs/**'
@@ -63,7 +63,7 @@ distTar {
 
 distZip {
     archiveName "${applicationName}.zip"
-    into("$applicationName\\bin") {
+    into("$applicationName/bin") {
         from '.'
         include 'components/**'
         include 'configs/**'

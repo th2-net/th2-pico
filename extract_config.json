@@ -1,6 +1,16 @@
 {
     "images": [
-        "ghcr.io/th2-net/th2-mstore:4.0.0-th2-4253-jar-publishing-3513137351-0b2d0c6"
+        "ghcr.io/th2-net/th2-rpt-data-provider:5.4.12-master_migration_to_cradle_rebase-3022271409",
+        "ghcr.io/th2-net/th2-check1:3.9.0",
+        "ghcr.io/th2-net/th2-util:3.1.0",
+        "ghcr.io/th2-net/th2-codec-fix:3.10.4",
+        "ghcr.io/th2-net/th2-conn-fix:3.7.2-th2-3799-2469558886",
+        "ghcr.io/th2-net/th2-estore:3.6.0",
+        "ghcr.io/th2-net/th2-conn-fix:3.7.2-th2-3799-2469558886",
+        "ghcr.io/th2-net/th2-rpt-viewer:3.1.56",
+        "ghcr.io/th2-net/th2-act-template-j:3.5.0",
+        "ghcr.io/th2-net/th2-conn-fix:3.7.2-th2-3799-2469558886",
+        "ghcr.io/th2-net/th2-mstore:3.5.0"
     ],
     "layers_config": {
         "codec-fix": 4,
@@ -14,6 +24,7 @@
     },
     "registry_mapping": {
         "nexus.exactpro.com:9000": "REGISTRY_USER:REGISTRY_PASSWORD",
-        "nexus.exactpro.com:18000": "SOLUTION_REGISTRY_USER:SOLUTION_REGISTRY_PASSWORD"
+        "nexus.exactpro.com:18000": "SOLUTION_REGISTRY_USER:SOLUTION_REGISTRY_PASSWORD",
+        "nexus.exactpro.com:21000": "PROPRIETARY_REGISTRY_USER:PROPRIETARY_REGISTRY_PASSWORD"
     }
 }

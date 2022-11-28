@@ -51,8 +51,7 @@ class ImageExtractor(object):
         self.config = config
 
     def extract_and_prepare(self):
-        out_dir = self.__call_script()
-        self.__prepare_directory(out_dir)
+        self.__prepare_directory(self.__call_script())
 
 
     def __call_script(self) -> str:
@@ -83,12 +82,15 @@ class ImageExtractor(object):
                 *args_list])
         print()
         if(execution_result.returncode != 0 or not os.path.exists(out_dir)):
-            sys.exit(1)
+            raise RuntimeException("Error while loading image file for {0}".format(out_dir) )
         return out_dir
 
     def __prepare_directory(self, dir):
         cwd = dir
         home_dir = cwd + HOME_DIR_POSTFIX
+        if not os.path.exists(home_dir):
+            shutil.rmtree(cwd)
+            return
         for filename in os.listdir(home_dir):
             if(filename in HOME_IGNORE):
                 continue
