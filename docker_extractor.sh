@@ -27,7 +27,7 @@ PLATFORM="${PLATFORM_DEFAULT}"
 OUT_DIR="./output"
 NUMBER_OF_LAYERS=1
 TOKEN="token"
-REPOSITORY_TYPE="ghcr"
+AUTH_TYPE="token"
 
 usage() {
     echo "This script pulls and extracts all files from an image in Docker Hub."
@@ -47,7 +47,7 @@ usage() {
     echo "                      platforms supported for that image."
     echo "  -o OUT_DIR          Extract image to the specified output dir (default: ${OUT_DIR})"
     echo "  -n NUMBER_OF_LAYERS number of layers to be extracted, will be taken in reverse order"
-    echo "  -t REPOSITORY_TYPE  type of repo from which extraction take place. Valid values: ghcr, nexus"
+    echo "  -t AUTH_TYPE        type of auth. Valid values: token, basic"
     echo "  -h                  Show help with usage examples"
 }
 
@@ -77,7 +77,7 @@ fi
 while getopts ':ho:p:n:t:' opt; do
     case $opt in
         t)
-            REPOSITORY_TYPE=${OPTARG}
+            AUTH_TYPE=${OPTARG}
             ;;
         n)
             NUMBER_OF_LAYERS=${OPTARG}
@@ -184,14 +184,14 @@ fetch_with_credentials() {
         elif [ $# -eq 3 ]; then
             set -- -H "$2" -H "$3" "$1"
         fi
-        curl -u "$REGISTRY_USER:$REGISTRY_PASSWORD" -sSL "$@"
+        curl -u "$BASIC_USER:$BASIC_PASSWORD" -sSL "$@"
     else
         if [ $# -eq 2 ]; then
             set -- --header "$2" "$1"
         elif [ $# -eq 3 ]; then
             set -- --header "$2" --header "$3" "$1"
         fi
-        wget --username "$REGISTRY_USER" --password "$REGISTRY_PASSWORD" -qO- "$@"
+        wget --username "$BASIC_USER" --password "$BASIC_PASSWORD" -qO- "$@"
     fi
 }
 
@@ -207,7 +207,7 @@ v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 if [ "${PLATFORM}" = "${PLATFORM_DEFAULT}" ] || [ -z "${ref##sha256:*}" ]; then
     digest="${ref}"
 else
-    if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+    if [ "$AUTH_TYPE" = "token" ]; then
       digest=$(fetch "${manifest_url} ${auth_header} ${v2_header}" |
           # Break up the single-line JSON output into separate lines by adding
           # newlines before and after the chars '[', ']', '{', and '}'.
@@ -232,7 +232,7 @@ else
                   break
               fi
           done)
-    elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+    elif [ "$AUTH_TYPE" = "basic" ]; then
       digest=$(fetch_with_credentials "${manifest_url} ${v2_header}" |
         # Break up the single-line JSON output into separate lines by adding
         # newlines before and after the chars '[', ']', '{', and '}'.
@@ -258,7 +258,7 @@ else
             fi
         done)
     else
-      echo "$REPOSITORY_TYPE not supported"
+      echo "$AUTH_TYPE not supported"
       exit 1
     fi
 fi
@@ -277,18 +277,18 @@ token=$(echo $TOKEN | base64)
 auth_header="Authorization: Bearer $token"
 v2_header="Accept: application/vnd.docker.distribution.manifest.v2+json"
 echo "Getting image manifest for $image:$ref..."
-if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+if [ "$AUTH_TYPE" = "token" ]; then
   layers=$(fetch "${manifest_url}" "${auth_header}" "${v2_header}" |
                # Extract `digest` values only after the `layers` section appears.
                sed -n '/"layers":/,$ p' |
                extract 'digest')
-elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+elif [ "$AUTH_TYPE" = "basic" ]; then
   layers=$(fetch_with_credentials "${manifest_url}" "${v2_header}" |
                # Extract `digest` values only after the `layers` section appears.
                sed -n '/"layers":/,$ p' |
                extract 'digest')
 else
-  echo "$REPOSITORY_TYPE not supported"
+  echo "$AUTH_TYPE not supported"
   exit 1
 fi
 
@@ -304,12 +304,12 @@ for i in $(seq 1 $NUMBER_OF_LAYERS); do
     echo $layer
     hash="${layer#sha256:}"
     echo "Fetching and extracting layer ${hash}..."
-    if [ "$REPOSITORY_TYPE" = "ghcr" ]; then
+    if [ "$AUTH_TYPE" = "token" ]; then
       fetch "${blobs_base_url}/${layer}" "${auth_header}" | gzip -d | tar -C "${OUT_DIR}" -xf -
-    elif [ "$REPOSITORY_TYPE" = "nexus" ]; then
+    elif [ "$AUTH_TYPE" = "basic" ]; then
       fetch_with_credentials "${blobs_base_url}/${layer}" | gzip -d | tar -C "${OUT_DIR}" -xf -
     else
-      echo "$REPOSITORY_TYPE not supported"
+      echo "$AUTH_TYPE not supported"
       exit 1
     fi
     # Ref: https://github.com/moby/moby/blob/master/image/spec/v1.2.md#creating-an-image-filesystem-changeset
