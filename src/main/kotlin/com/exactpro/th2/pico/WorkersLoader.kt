@@ -37,28 +37,29 @@ object WorkersLoader {
         isDirectory(componentsDir)
         isDirectory(configsDir)
         for(configDir in configsDir.listFiles()) {
-            val boxConfig = getBoxConfiguration(configDir)
+            val boxConfig = getBoxConfiguration(configDir) ?: continue
             val componentDir = findDirectory(
                 boxConfig.image.split("/").last(),
                 componentsDir
-            ) { "Not found image files for ${boxConfig.image}" }
-            workers.add(loadWorker(configDir, componentDir, boxConfig));
+            ) ?: continue
+            val worker = loadWorker(configDir, componentDir, boxConfig) ?: continue
+            workers.add(worker);
         }
         return workers;
     }
 
     private fun loadWorker(configDir: File,
                            componentDir: File,
-                           boxConfiguration: BoxConfiguration): Worker {
-        val method = getMethod(componentDir);
-        val arguments = getArguments(configDir);
+                           boxConfiguration: BoxConfiguration): Worker? {
+        val method = getMethod(componentDir) ?: return null
+        val arguments = getArguments(configDir)
         LOGGER.info { "Loaded worker: ${componentDir.name}" }
         return Worker(method, arguments, boxConfiguration.name)
     }
 
-    private fun getMethod(componentDir: File): Method {
-        val classLoader = getClassLoader(componentDir);
-        val mainClazz = getMainClass(componentDir);
+    private fun getMethod(componentDir: File): Method? {
+        val classLoader = getClassLoader(componentDir) ?: return null
+        val mainClazz = getMainClass(componentDir) ?: return null
         val clazz = Class.forName(mainClazz, true, classLoader)
         return clazz.getDeclaredMethod("main", Array<String>::class.java)
     }
@@ -67,46 +68,61 @@ object WorkersLoader {
         return arrayOf(CONFIGS_COMMON_ARGUMENT, configDir.absolutePath)
     }
 
-    private fun getMainClass(dir: File): String {
+    private fun getMainClass(dir: File): String? {
+        dir.logDirectoryDoesNotExist()
+        if(!dir.isDirectory) return null
         for(file in dir.listFiles()) {
             if(file.name == MAIN_CLASS_FILE_NAME) {
                 return file.readLines().first()
             }
         }
-        throw IllegalStateException()
+        LOGGER.error { "Not found $MAIN_CLASS_FILE_NAME in $dir. Skipping related component." }
+        return null
     }
 
-    private fun getClassLoader(dir: File): URLClassLoader {
+    private fun getClassLoader(dir: File): URLClassLoader? {
+        dir.logDirectoryDoesNotExist()
+        if(!dir.isDirectory) return null
         for(file in dir.listFiles()) {
             if(file.name == JAR_FILE_DIR) {
                 val jars = file.listFiles().map { it.toURI().toURL() }.toTypedArray()
                 return URLClassLoader(jars)
             }
         }
-        throw IllegalStateException()
+        LOGGER.error { "Not found $JAR_FILE_DIR in ${dir.absolutePath}. Skipping related component." }
+        return null
     }
 
-    private fun getBoxConfiguration(configDir: File): BoxConfiguration {
+    private fun getBoxConfiguration(configDir: File): BoxConfiguration? {
+        configDir.logDirectoryDoesNotExist()
+        if(!configDir.isDirectory) return null
         for(configFile in configDir.listFiles()) {
             if(configFile.name == BOX_CONFIG_FILENAME) {
                 return BoxConfiguration.loadConfiguration(configFile)
             }
         }
-        throw IllegalStateException("Not found $BOX_CONFIG_FILENAME in ${configDir.absolutePath}")
+        LOGGER.error { "Not found $BOX_CONFIG_FILENAME in ${configDir.absolutePath}. Skipping component." }
+        return null
     }
 
-    private fun findDirectory(name: String, dir: File, message: () -> (String) = {""}): File {
-        isDirectory(dir)
+    private fun findDirectory(name: String, dir: File): File? {
+        dir.logDirectoryDoesNotExist()
+        if(!dir.isDirectory) return null
         for(file in dir.listFiles()) {
             if(file.name == name) {
                 isDirectory(dir)
                 return file
             }
         }
-        throw IllegalStateException("Not found $name in ${dir.absolutePath}. ${message}")
+        LOGGER.error { "Not found ${dir.name}. Skipping related component." }
+        return null
     }
 
     private fun isDirectory(file: File) {
         check(file.isDirectory) { "Expected ${file.absolutePath} to be a directory, but was not." }
+    }
+
+    private fun File.logDirectoryDoesNotExist() {
+        if(!isDirectory) LOGGER.error { "$this is not a directory. Skipping related component." }
     }
 }

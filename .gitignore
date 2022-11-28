@@ -19,6 +19,7 @@ gen
 bin
 external
 provided
+components
 
 #temp files
 .*.swp
@@ -39,3 +40,4 @@ tmp_workspace
 
 #support files
 *.log
+*.log.gz
