@@ -1,7 +1,6 @@
 {
     "images": [
-        "ghcr.io/th2-net/th2-mstore:4.0.0-th2-4253-jar-publishing-3513137351-0b2d0c6",
-        "nexus.exactpro.com:9000/datareader:latest"
+        "ghcr.io/th2-net/th2-mstore:4.0.0-th2-4253-jar-publishing-3513137351-0b2d0c6"
     ],
     "layers_config": {
         "codec-fix": 4,
