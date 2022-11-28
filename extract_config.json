@@ -1,0 +1,20 @@
+{
+    "images": [
+        "ghcr.io/th2-net/th2-mstore:4.0.0-th2-4253-jar-publishing-3513137351-0b2d0c6",
+        "nexus.exactpro.com:9000/datareader:latest"
+    ],
+    "layers_config": {
+        "codec-fix": 4,
+        "codec-ntg": 4,
+        "codec-fast": 4,
+        "codec-itch": 4,
+        "codec-soup": 4,
+        "conn-fix": 4,
+        "conn-ntg": 4,
+        "conn-soup": 4
+    },
+    "registry_mapping": {
+        "nexus.exactpro.com:9000": "REGISTRY_USER:REGISTRY_PASSWORD",
+        "nexus.exactpro.com:18000": "SOLUTION_REGISTRY_USER:SOLUTION_REGISTRY_PASSWORD"
+    }
+}
