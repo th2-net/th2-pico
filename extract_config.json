@@ -13,14 +13,14 @@
         "ghcr.io/th2-net/th2-mstore:3.5.0"
     ],
     "layers_config": {
-        "codec-fix": 4,
-        "codec-ntg": 4,
-        "codec-fast": 4,
-        "codec-itch": 4,
-        "codec-soup": 4,
-        "conn-fix": 4,
-        "conn-ntg": 4,
-        "conn-soup": 4
+        "codec-fix": 2,
+        "codec-ntg": 2,
+        "codec-fast": 2,
+        "codec-itch": 2,
+        "codec-soup": 2,
+        "conn-fix": 2,
+        "conn-ntg": 2,
+        "conn-soup": 2
     },
     "registry_mapping": {
         "nexus.exactpro.com:9000": "REGISTRY_USER:REGISTRY_PASSWORD",
