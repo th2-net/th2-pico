@@ -26,6 +26,5 @@ distribution:
     - ./gradlew build
   artifacts:
     paths:
-      - build/distributions/pico*.zip
       - build/distributions/pico*.tar
     expire_in: 1 week
