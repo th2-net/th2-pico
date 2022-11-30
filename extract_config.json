@@ -18,9 +18,9 @@
         "codec-fast": 2,
         "codec-itch": 2,
         "codec-soup": 2,
-        "conn-fix": 2,
-        "conn-ntg": 2,
-        "conn-soup": 2
+        "conn-fix": 4,
+        "conn-ntg": 4,
+        "conn-soup": 4
     },
     "registry_mapping": {
         "nexus.exactpro.com:9000": "REGISTRY_USER:REGISTRY_PASSWORD",
