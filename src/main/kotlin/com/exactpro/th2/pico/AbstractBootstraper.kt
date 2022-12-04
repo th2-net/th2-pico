@@ -18,13 +18,13 @@ package com.exactpro.th2.pico
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import mu.KotlinLogging
 
-class Bootstrapper(private val configuration: PicoConfiguration): IBootstrap {
-    private val workerThreads: MutableList<Thread> = mutableListOf()
-    private val workers: MutableList<Worker> = mutableListOf()
+abstract class AbstractBootstraper(private val configuration: PicoConfiguration): IBootstrap {
+    protected val workerThreads: MutableList<Thread> = mutableListOf()
+    protected val workers: MutableList<IWorker> = mutableListOf()
 
     override fun init() {
         try {
-            workers.addAll(WorkersLoader.load(configuration))
+            workers.addAll(populateWorkers())
         } catch (e: Exception) {
             LOGGER.error { "Error while loading workers: ${e.message}" }
             throw e
@@ -35,12 +35,15 @@ class Bootstrapper(private val configuration: PicoConfiguration): IBootstrap {
 
     override fun start() {
         LOGGER.info { "Starting workers" }
-        for (worker in workers) {
-            workerThreads.add(Thread(worker))
+        populateThreadsList()
+        workerThreads.map {
+            it.start()
         }
-        workerThreads.map { it.start() }
         workerThreads.map { it.join() }
     }
+
+    abstract fun populateThreadsList()
+    abstract fun populateWorkers(): List<IWorker>
 
     override fun stop() {
         workerThreads.map { it.interrupt() }
@@ -49,6 +52,7 @@ class Bootstrapper(private val configuration: PicoConfiguration): IBootstrap {
 
     override fun close() {
         workerThreads.map { it.interrupt() }
+        workers.map { it.close() }
         workerThreads.clear()
         workers.clear()
     }

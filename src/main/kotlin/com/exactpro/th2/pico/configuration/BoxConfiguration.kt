@@ -6,7 +6,7 @@ import mu.KotlinLogging
 import java.io.File
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class BoxConfiguration(val name: String = "", val image: String = "") {
+data class BoxConfiguration(val boxName: String = "", val image: String = "") {
     companion object {
 
         private val LOGGER = KotlinLogging.logger {  }

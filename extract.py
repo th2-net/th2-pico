@@ -17,6 +17,7 @@ import shutil
 import os
 import sys
 import json
+import re
 import subprocess
 import tarfile
 import threading
@@ -28,15 +29,18 @@ SCRIPT_FILE_NAME: str = "docker_extractor.sh"
 RUN_SCRIPT_POSTFIX: str = os.sep + "bin" + os.sep + "service"
 SERVICE_DIR_POSTFIX: str = os.sep + "home" + os.sep + "service"
 HOME_DIR_POSTFIX: str = os.sep + "home" + os.sep
-LIB_DIR: str = os.sep + "components" + os.sep
+COMPONENTS_DIR: str = "components"
 HOME_IGNORE: List[str] = ["service", "Dockerfile"]
+SERVICE_IGNORE: List[str] = ["lib"]
 MAIN_CLASS_LINE_INDICATOR: str = "eval set --"
+CLASSPATH_INDICTOR: str = "CLASSPATH=$APP_HOME/lib/"
+LIB_DIR: str = "lib"
 
-def make_tarfile(output_filename, source_dir):
-    with tarfile.open(output_filename, "w:gz") as tar:
-        for file in os.listdir(source_dir):
-            p = os.path.join(source_dir, file)
-            tar.add(p, arcname=file)
+def substring_after(s, delim):
+    return s.partition(delim)[2]
+
+def substring_before(s, delim):
+    return s.partition(delim)[0]
 
 class Config(object):
     def __init__(self, images, layers_config, registry_mapping):
@@ -49,9 +53,11 @@ class ImageExtractor(object):
         self.image_name = image_name
         self.cwd = cwd
         self.config = config
+        self.components_dir = os.path.join(self.cwd, COMPONENTS_DIR)
 
     def extract_and_prepare(self):
-        self.__prepare_directory(self.__call_script())
+        lib_dir = os.path.join(self.components_dir, LIB_DIR)
+        self.__prepare_directory(self.__call_script(), lib_dir)
 
 
     def __call_script(self) -> str:
@@ -69,23 +75,20 @@ class ImageExtractor(object):
             [user, password] = self.config.registry_mapping[domain].split(":")
             os.environ["BASIC_USER"] = user
             os.environ["BASIC_PASSWORD"] = password
-
-        out_dir = self.cwd + LIB_DIR + os.sep + self.image_name.split("/")[-1]
+        out_dir = os.path.join(self.components_dir, self.image_name.split("/")[-1])
         args_list = [
             '-n', str(number_of_layers),
             '-o', out_dir,
             '-t', auth_type,
             self.image_name
         ]
-        print("Started extraction of image {0}".format(self.image_name))
-        execution_result = subprocess.run([self.cwd + os.sep + SCRIPT_FILE_NAME,
+        execution_result = subprocess.run([os.path.join(self.cwd, SCRIPT_FILE_NAME),
                 *args_list])
-        print()
         if(execution_result.returncode != 0 or not os.path.exists(out_dir)):
             raise RuntimeException("Error while loading image file for {0}".format(out_dir) )
         return out_dir
 
-    def __prepare_directory(self, dir):
+    def __prepare_directory(self, dir, lib_dir):
         cwd = dir
         home_dir = cwd + HOME_DIR_POSTFIX
         if not os.path.exists(home_dir):
@@ -97,10 +100,40 @@ class ImageExtractor(object):
             shutil.move(home_dir + os.sep + filename, cwd)
 
         service_dir = cwd + SERVICE_DIR_POSTFIX
+        service_lib_dir = os.path.join(service_dir, LIB_DIR)
+        service_main_lib = self.__extract_main_lib(service_dir + RUN_SCRIPT_POSTFIX)
+        libs = []
+        print(service_main_lib)
+        if os.path.exists(service_lib_dir) and os.path.isdir(service_lib_dir):
+            for filename in os.listdir(service_lib_dir):
+                if filename == service_main_lib:
+                    continue
+                libs.append(filename)
+                if not os.path.exists(os.path.join(lib_dir, filename)):
+                    shutil.move(os.path.join(service_lib_dir, filename), lib_dir)
+                else:
+                    os.remove(os.path.join(service_lib_dir, filename))
+
+        self.__dump_libs_config({"libs": libs}, cwd)
+
         for filename in os.listdir(service_dir):
             shutil.move(service_dir + os.sep + filename, cwd)
+
         shutil.rmtree(cwd + HOME_DIR_POSTFIX)
         self.__extract_main_class(cwd + RUN_SCRIPT_POSTFIX, cwd)
+
+    def __dump_libs_config(self, libs_config, cwd):
+         with open(os.path.join(cwd, "libConfig.json"), "w") as lib_file:
+             lib_file.write(json.dumps(libs_config))
+
+
+    def __extract_main_lib(self, run_file):
+        with open(run_file) as file:
+            for line in file:
+                if line.__contains__(CLASSPATH_INDICTOR):
+                    return substring_before(substring_after(line.rstrip(), CLASSPATH_INDICTOR), ":")
+        raise RuntimeError("Not found main lib")
+
 
     def __extract_main_class(self, run_file, cwd):
         with open(run_file) as file:
@@ -119,6 +152,11 @@ if __name__ == "__main__":
 
     config = Config(**j)
     cwd = os.getcwd()
+
+    components_dir = os.path.join(cwd, COMPONENTS_DIR)
+    lib_dir = os.path.join(components_dir, LIB_DIR)
+    os.makedirs(lib_dir)
+
     threads: List[threading.Thread] = []
     for image in config.images:
         extractor = ImageExtractor(image, cwd, config)
@@ -129,6 +167,3 @@ if __name__ == "__main__":
 
     for x in threads:
         x.join()
-
-    #make_tarfile("components.tar", cwd + LIB_DIR)
-    #shutil.rmtree(cwd + LIB_DIR)

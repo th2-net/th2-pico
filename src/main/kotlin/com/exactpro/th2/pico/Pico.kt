@@ -15,9 +15,13 @@
  */
 package com.exactpro.th2.pico
 
+import com.exactpro.th2.pico.classloader.ClassloaderBootstrapper
+import com.exactpro.th2.pico.configuration.LibsConfig
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_COMPONENTS_DIR
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_CONFIGS_DIR
+import com.exactpro.th2.pico.shell.ShellBootstrapper
+import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
 import org.apache.commons.cli.CommandLineParser
 import org.apache.commons.cli.DefaultParser
@@ -26,22 +30,25 @@ import org.apache.commons.cli.Option
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
 import java.io.File
+import kotlin.system.exitProcess
 
 
 fun main(args: Array<String>) {
     val options = Options()
 
     val componentsOption = Option("o", "components", true, "absolute/relative path to directory with component files.")
-    val configsOption = Option("c", "configs", true, "absolute/relative path to directory with configs.")
+    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: [full, images, configs]. Default: full")
+    val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for bundle. Possible values: [shell, classloader]. Default: classloader")
     val helpOption = Option("h", "help", false, "help board")
 
     options.addOption(componentsOption)
-    options.addOption(configsOption)
+    options.addOption(operatorMode)
+    options.addOption(bootstrapType)
     options.addOption(helpOption)
 
     val formatter = HelpFormatter()
 
-    val configuration = try {
+    try {
         val parser: CommandLineParser = DefaultParser()
         val cmdArgs = parser.parse(options, args)
         if(cmdArgs.hasOption(helpOption)) {
@@ -51,16 +58,72 @@ fun main(args: Array<String>) {
         val componentsDir = if(cmdArgs.hasOption(componentsOption)) {
             cmdArgs.getOptionValue(componentsOption)
         } else DEFAULT_COMPONENTS_DIR
-        val configsDir = if(cmdArgs.hasOption(configsOption)) {
-            cmdArgs.getOptionValue(configsOption)
-        } else DEFAULT_CONFIGS_DIR
-        PicoConfiguration(componentsDir, configsDir)
+
+        val mode = if(!cmdArgs.hasOption(operatorMode)) "full" else cmdArgs.getOptionValue(operatorMode)
+        /*try {
+            PicoOperator.run(OperatorRunConfig(mode))
+        } catch (e: Exception) {
+            LOGGER.error { "Error while running operator: ${e.message}" }
+            return
+        }*/
+
+        val configuration = PicoConfiguration(componentsDir, DEFAULT_CONFIGS_DIR)
+        unwrapLibraries(configuration.componentsDir)
+
+        val bootstrapType = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
+
+        val bootstrapper = when(bootstrapType) {
+            "classloader" -> ClassloaderBootstrapper(configuration)
+            "shell" -> ShellBootstrapper(configuration)
+            else -> throw IllegalStateException("unreachable")
+        }
+        Runtime.getRuntime().addShutdownHook(object : Thread() {
+            override fun run() {
+                bootstrapper.close()
+            }
+        })
+        bootstrapper.init()
+        try {
+            bootstrapper.start()
+        } catch (e: Exception) {
+            exitProcess(1)
+        }
     } catch (e: ParseException) {
         formatter.printHelp("Pico bundle", options)
         return
     }
-
-    val bootstrapper = Bootstrapper(configuration)
-    bootstrapper.init()
-    bootstrapper.start()
 }
+
+private fun unwrapLibraries(componentsDir: File) {
+    val libsDir = componentsDir.resolve(LIBS_DIR)
+    for(component in componentsDir.listFiles()) {
+        if(component.name == LIBS_DIR) continue
+        val config = try {
+            LibsConfig.loadConfiguration(component.resolve(File(LIBS_JSON_FILE)))
+        } catch (e: Exception) {
+            LOGGER.error { "Error while unwrapping libraries files for $component. Message: ${e.message}" }
+            continue
+        }
+        val componentLibsDir = componentsDir.resolve(LIBS_DIR)
+        config.libs.forEach {
+            if(directoryContainsFile(componentLibsDir, it)) return@forEach
+            libsDir.resolve(it).copyTo(componentLibsDir)
+        }
+    }
+}
+
+private fun directoryContainsFile(directory: File, fileName: String): Boolean {
+    val files = directory.listFiles() ?: return false
+
+    for (file in files) {
+        if (file.isFile && file.name == fileName) {
+            return true
+        }
+    }
+
+    return false
+}
+
+val LOGGER = KotlinLogging.logger {  }
+private const val LIBS_JSON_FILE = "libConfig.json"
+private const val LIBS_DIR = "lib"

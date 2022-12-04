@@ -13,24 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.pico
+package com.exactpro.th2.pico.classloader
 
+import com.exactpro.th2.pico.IWorker
 import mu.KotlinLogging
 import java.lang.reflect.Method
+import java.net.URLClassLoader
 
 
-class Worker(private val main: Method,
-             private val args: Array<String>,
-             private val componentName: String): Runnable {
+class ClassloaderWorker(private val main: Method,
+                        private val args: Array<String>,
+                        private val componentName: String,
+                        val loader: URLClassLoader
+): IWorker {
     override fun run() {
         LOGGER.info { "Started worker: $componentName" }
         try {
             main.invoke(null, args)
-            Runtime.getRuntime().runFinalization()
-        } catch (t: Throwable) {
-            LOGGER.error { "Exception while running $componentName" }
+        } catch (e: Exception) {
+            LOGGER.error { "Exception while running $componentName. $e" }
+            throw e
         }
     }
+
+    override fun close() {
+        //
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger {  }
     }

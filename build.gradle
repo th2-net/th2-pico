@@ -1,7 +1,6 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.5.10'
+    id 'org.jetbrains.kotlin.jvm' version '1.6.21'
     id 'java'
-    id 'java-library'
     id 'application'
 }
 
@@ -12,11 +11,15 @@ ext {
     log4jVersion        = '2.19.0'
 }
 
+name
 group 'com.exactpro.th2'
 version release_version
 
 repositories {
-    mavenCentral()
+    maven {
+        name 'MavenLocal'
+        url sharedDir
+    }
     mavenCentral()
 }
 
@@ -25,10 +28,10 @@ dependencies {
     // https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation 'commons-cli:commons-cli:1.5.0'
 
-
+    implementation "com.exactpro.th2:pico-operator:0.0.1"
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.jetbrains.kotlin:kotlin-reflect"
-    implementation "io.github.microutils:kotlin-logging:1.7.+"
+    implementation "io.github.microutils:kotlin-logging:2.0.10"
 
     implementation("org.slf4j:slf4j-api:${slf4jVersion}")
     implementation("org.apache.logging.log4j:log4j-slf4j2-impl:${log4jVersion}")

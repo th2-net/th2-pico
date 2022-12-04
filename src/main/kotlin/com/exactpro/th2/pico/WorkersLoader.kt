@@ -15,23 +15,31 @@
  */
 package com.exactpro.th2.pico
 
+import com.exactpro.th2.pico.classloader.ClassloaderWorker
 import com.exactpro.th2.pico.configuration.BoxConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration
+import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
 import java.io.File
 import java.lang.reflect.Method
+import java.net.URL
 import java.net.URLClassLoader
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 
 object WorkersLoader {
     private const val MAIN_CLASS_FILE_NAME = "mainclass"
     private const val JAR_FILE_DIR = "lib"
-    private const val BOX_CONFIG_FILENAME = "box.json"
-    private const val CONFIGS_COMMON_ARGUMENT = "-c"
+    private const val SCRIPT_DIRECTORY = "bin"
+    private const val SCRIPT_FILE_NAME = "service"
+    private const val BOX_CONFIG_FILENAME = "boxSpec.json"
+    private const val CONFIGS_COMMON_ARGUMENT = "--configs"
+    private const val DICTIONARIES_DIR_COMMON_ARG = "--dictionaries"
+
     private val LOGGER = KotlinLogging.logger {  }
 
-
-    fun load(configuration: PicoConfiguration): List<Worker> {
-        val workers = mutableListOf<Worker>()
+    fun loadClassloaderWorkers(configuration: PicoConfiguration): List<ClassloaderWorker> {
+        val workers = mutableListOf<ClassloaderWorker>()
         val componentsDir = configuration.componentsDir
         val configsDir = configuration.configsDir
         isDirectory(componentsDir)
@@ -42,30 +50,68 @@ object WorkersLoader {
                 boxConfig.image.split("/").last(),
                 componentsDir
             ) ?: continue
-            val worker = loadWorker(configDir, componentDir, boxConfig) ?: continue
+            val worker = loadClassloaderWorker(configDir, componentDir, boxConfig) ?: continue
             workers.add(worker);
         }
         return workers;
     }
 
-    private fun loadWorker(configDir: File,
-                           componentDir: File,
-                           boxConfiguration: BoxConfiguration): Worker? {
-        val method = getMethod(componentDir) ?: return null
-        val arguments = getArguments(configDir)
-        LOGGER.info { "Loaded worker: ${componentDir.name}" }
-        return Worker(method, arguments, boxConfiguration.name)
+    fun loadShellWorkers(configuration: PicoConfiguration): List<ShellWorker> {
+        val workers = mutableListOf<ShellWorker>()
+        val componentsDir = configuration.componentsDir
+        val configsDir = configuration.configsDir
+        isDirectory(componentsDir)
+        isDirectory(configsDir)
+        for(configDir in configsDir.listFiles()) {
+            val boxConfig = getBoxConfiguration(configDir) ?: continue
+            val componentDir = findDirectory(
+                boxConfig.image.split("/").last(),
+                componentsDir
+            ) ?: continue
+            val worker = loadShellWorker(configDir, componentDir, boxConfig) ?: continue
+            workers.add(worker)
+        }
+        return workers
     }
 
-    private fun getMethod(componentDir: File): Method? {
+    private fun loadShellWorker(configDir: File,
+                                componentDir: File,
+                                boxConfiguration: BoxConfiguration
+    ): ShellWorker? {
+        val scriptDir = findDirectory(SCRIPT_DIRECTORY, componentDir) ?: return null
+        val operatingSystem = System.getProperty("os.name")
+        val scriptPath = if (operatingSystem.contains("Windows")) {
+            scriptDir.resolve("$SCRIPT_FILE_NAME.bat")
+        } else {
+            scriptDir.resolve(SCRIPT_FILE_NAME)
+        }
+        if(!scriptPath.canExecute()) giveExecutionPermissions(scriptPath)
+        val arguments = getArguments(configDir)
+        return ShellWorker(scriptPath, componentDir, arguments, boxConfiguration.boxName)
+    }
+
+    private fun loadClassloaderWorker(configDir: File,
+                                      componentDir: File,
+                                      boxConfiguration: BoxConfiguration
+    ): ClassloaderWorker? {
         val classLoader = getClassLoader(componentDir) ?: return null
+        val method = getMethod(componentDir, classLoader) ?: return null
+        val arguments = getArguments(configDir)
+        LOGGER.info { "Loaded worker: ${componentDir.name}" }
+        return ClassloaderWorker(method, arguments, boxConfiguration.boxName, classLoader)
+    }
+
+
+    private fun getMethod(componentDir: File, classLoader: ClassLoader): Method? {
         val mainClazz = getMainClass(componentDir) ?: return null
         val clazz = Class.forName(mainClazz, true, classLoader)
         return clazz.getDeclaredMethod("main", Array<String>::class.java)
     }
 
     private fun getArguments(configDir: File): Array<String> {
-        return arrayOf(CONFIGS_COMMON_ARGUMENT, configDir.absolutePath)
+        return arrayOf(
+            CONFIGS_COMMON_ARGUMENT, configDir.absolutePath
+        )
     }
 
     private fun getMainClass(dir: File): String? {
@@ -83,14 +129,20 @@ object WorkersLoader {
     private fun getClassLoader(dir: File): URLClassLoader? {
         dir.logDirectoryDoesNotExist()
         if(!dir.isDirectory) return null
+        var mainJar: Array<URL> = arrayOf()
+        var libJars: Array<URL> = arrayOf()
         for(file in dir.listFiles()) {
             if(file.name == JAR_FILE_DIR) {
-                val jars = file.listFiles().map { it.toURI().toURL() }.toTypedArray()
-                return URLClassLoader(jars)
+                mainJar = file.listFiles().map { it.toURI().toURL() }.toTypedArray()
             }
         }
-        LOGGER.error { "Not found $JAR_FILE_DIR in ${dir.absolutePath}. Skipping related component." }
-        return null
+        val computedLibs = mainJar + libJars
+        if(computedLibs.isEmpty()) {
+            LOGGER.error { "Not found $JAR_FILE_DIR in ${dir.absolutePath}. Skipping related component." }
+            return null
+        }
+
+        return URLClassLoader(computedLibs, WorkersLoader::class.java.classLoader)
     }
 
     private fun getBoxConfiguration(configDir: File): BoxConfiguration? {
@@ -114,8 +166,12 @@ object WorkersLoader {
                 return file
             }
         }
-        LOGGER.error { "Not found ${dir.name}. Skipping related component." }
+        LOGGER.error { "Not found ${dir.name} directory. Skipping related component." }
         return null
+    }
+
+    private fun giveExecutionPermissions(file: File) {
+        file.setExecutable(true)
     }
 
     private fun isDirectory(file: File) {
