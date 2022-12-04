@@ -23,9 +23,7 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
     protected val workers: MutableList<IWorker> = mutableListOf()
 
     override fun init() {
-        workers.apply {
-            addAll(populateWorkers())
-        }
+        workers.addAll(populateWorkers())
         logger.info { "There are ${workers.size} workers loaded." }
         //System.setSecurityManager(UnsafeSecurityManager());
     }
