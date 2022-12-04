@@ -34,7 +34,6 @@ object WorkersLoader {
     private const val SCRIPT_FILE_NAME = "service"
     private const val BOX_CONFIG_FILENAME = "boxSpec.json"
     private const val CONFIGS_COMMON_ARGUMENT = "--configs"
-    private const val DICTIONARIES_DIR_COMMON_ARG = "--dictionaries"
 
     private val LOGGER = KotlinLogging.logger {  }
 

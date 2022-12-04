@@ -37,7 +37,7 @@ class ClassloaderWorker(private val main: Method,
     }
 
     override fun close() {
-        //
+        loader.close()
     }
 
     companion object {

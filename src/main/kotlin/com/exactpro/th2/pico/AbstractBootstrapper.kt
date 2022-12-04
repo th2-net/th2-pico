@@ -18,46 +18,50 @@ package com.exactpro.th2.pico
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import mu.KotlinLogging
 
-abstract class AbstractBootstraper(private val configuration: PicoConfiguration): IBootstrap {
+abstract class AbstractBootstrapper(private val configuration: PicoConfiguration): IBootstrap {
     protected val workerThreads: MutableList<Thread> = mutableListOf()
     protected val workers: MutableList<IWorker> = mutableListOf()
 
     override fun init() {
-        try {
-            workers.addAll(populateWorkers())
-        } catch (e: Exception) {
-            LOGGER.error { "Error while loading workers: ${e.message}" }
-            throw e
+        workers.apply {
+            addAll(populateWorkers())
         }
-        LOGGER.info { "There are ${workers.size} workers loaded." }
+        logger.info { "There are ${workers.size} workers loaded." }
         //System.setSecurityManager(UnsafeSecurityManager());
     }
 
     override fun start() {
-        LOGGER.info { "Starting workers" }
+        logger.info { "Starting workers" }
         populateThreadsList()
         workerThreads.map {
             it.start()
+            it.join()
         }
-        workerThreads.map { it.join() }
     }
 
     abstract fun populateThreadsList()
     abstract fun populateWorkers(): List<IWorker>
 
     override fun stop() {
-        workerThreads.map { it.interrupt() }
-        workerThreads.clear()
+        workerThreads.apply {
+            map { it.interrupt() }
+            clear()
+        }
     }
 
     override fun close() {
-        workerThreads.map { it.interrupt() }
-        workers.map { it.close() }
-        workerThreads.clear()
-        workers.clear()
+        workerThreads.apply {
+            map { it.interrupt() }
+            clear()
+        }
+
+        workers.apply {
+            map { it.close() }
+            clear()
+        }
     }
 
     companion object {
-        private val LOGGER = KotlinLogging.logger {  }
+        private val logger = KotlinLogging.logger {  }
     }
 }

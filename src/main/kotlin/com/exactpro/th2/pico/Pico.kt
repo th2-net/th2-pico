@@ -20,6 +20,8 @@ import com.exactpro.th2.pico.configuration.LibsConfig
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_COMPONENTS_DIR
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_CONFIGS_DIR
+import com.exactpro.th2.pico.operator.PicoOperator
+import com.exactpro.th2.pico.operator.config.OperatorRunConfig
 import com.exactpro.th2.pico.shell.ShellBootstrapper
 import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
@@ -36,10 +38,10 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     val options = Options()
 
-    val componentsOption = Option("o", "components", true, "absolute/relative path to directory with component files.")
-    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: [full, images, configs]. Default: full")
-    val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for bundle. Possible values: [shell, classloader]. Default: classloader")
-    val helpOption = Option("h", "help", false, "help board")
+    val componentsOption = Option("o", "components", true, "Absolute or relative path to the directory containing component files.")
+    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: full, images, configs. Default: full")
+    val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for the bundle. Possible values: shell, classloader. Default: classloader")
+    val helpOption = Option("h", "help", false, "Displays this help message.")
 
     options.addOption(componentsOption)
     options.addOption(operatorMode)
@@ -60,12 +62,12 @@ fun main(args: Array<String>) {
         } else DEFAULT_COMPONENTS_DIR
 
         val mode = if(!cmdArgs.hasOption(operatorMode)) "full" else cmdArgs.getOptionValue(operatorMode)
-        /*try {
+        try {
             PicoOperator.run(OperatorRunConfig(mode))
         } catch (e: Exception) {
             LOGGER.error { "Error while running operator: ${e.message}" }
             return
-        }*/
+        }
 
         val configuration = PicoConfiguration(componentsDir, DEFAULT_CONFIGS_DIR)
         unwrapLibraries(configuration.componentsDir)

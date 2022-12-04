@@ -15,35 +15,38 @@ class ShellWorker(
     private val componentName: String
 ): IWorker {
     private lateinit var process: Process
+    companion object {
+        private val logger = KotlinLogging.logger {  }
+        private const val BEFORE_RESTART_INTERVAL = 5000L
+    }
 
     override fun run() {
         while (true) {
-            val processBuilder = ProcessBuilder(listOf(path.absolutePath) + args)
-            processBuilder.directory(componentFolder)
-            process = processBuilder.start()
-
-            val reader = BufferedReader(InputStreamReader(process.errorStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                LOGGER.error { "$componentName: $line" }
-            }
-
-            val exitCode = process.waitFor()
-            if(exitCode != 0) {
-                LOGGER.error { "$componentName script exited with non zero exit code. Restarting process." }
-                process.destroy()
-            }
+            startProcess()
             Thread.sleep(BEFORE_RESTART_INTERVAL)
         }
     }
 
-    override fun close() {
-        LOGGER.info { "Closing process for $componentName script." }
-        if(this::process.isInitialized) process.destroy()
+    private fun startProcess() {
+        val processBuilder = ProcessBuilder(listOf(path.absolutePath) + args)
+        processBuilder.directory(componentFolder)
+        process = processBuilder.start()
+
+        val reader = BufferedReader(InputStreamReader(process.errorStream))
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            logger.error { "$componentName: $line" }
+        }
+
+        val exitCode = process.waitFor()
+        if(exitCode != 0) {
+            logger.error { "$componentName script exited with non zero exit code. Restarting process." }
+            process.destroy()
+        }
     }
 
-    companion object {
-        private val LOGGER = KotlinLogging.logger {  }
-        private const val BEFORE_RESTART_INTERVAL = 5000L
+    override fun close() {
+        logger.info { "Closing process for $componentName script." }
+        if(this::process.isInitialized) process.destroy()
     }
 }
