@@ -25,7 +25,6 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
     override fun init() {
         workers.addAll(populateWorkers())
         logger.info { "There are ${workers.size} workers loaded." }
-        //System.setSecurityManager(UnsafeSecurityManager());
     }
 
     override fun start() {
