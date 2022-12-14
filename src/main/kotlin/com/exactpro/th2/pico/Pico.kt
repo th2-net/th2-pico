@@ -42,7 +42,7 @@ fun main(args: Array<String>) {
     val options = Options()
 
     val componentsOption = Option("o", "components", true, "Absolute or relative path to the directory containing component files.")
-    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: full, images, configs. Default: full")
+    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: full, configs, none. Default: none")
     val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for the bundle. Possible values: shell, classloader. Default: classloader")
     val helpOption = Option("h", "help", false, "Displays this help message.")
 
@@ -64,12 +64,14 @@ fun main(args: Array<String>) {
             cmdArgs.getOptionValue(componentsOption)
         } else DEFAULT_COMPONENTS_DIR
 
-        val mode = if(!cmdArgs.hasOption(operatorMode)) "full" else cmdArgs.getOptionValue(operatorMode)
-        try {
-            PicoOperator.run(OperatorRunConfig(mode))
-        } catch (e: Exception) {
-            LOGGER.error { "Error while running operator: ${e.message}" }
-            return
+        if(cmdArgs.hasOption(operatorMode)) {
+            val mode = cmdArgs.getOptionValue(operatorMode)
+            try {
+                PicoOperator.run(OperatorRunConfig(mode, true))
+            } catch (e: Exception) {
+                LOGGER.error { "Error while running operator: ${e.message}" }
+                return
+            }
         }
 
         val configuration = PicoConfiguration(componentsDir, configDir)

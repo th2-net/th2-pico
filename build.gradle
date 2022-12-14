@@ -41,7 +41,7 @@ dependencies {
     // https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation 'commons-cli:commons-cli:1.5.0'
 
-    implementation "com.exactpro.th2:pico-operator:0.0.2-draft-3638207240-c8c76e4-SNAPSHOT"
+    implementation "com.exactpro.th2:pico-operator:0.0.3-fixes-3695570209-65aa138-SNAPSHOT"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.jetbrains.kotlin:kotlin-reflect"
