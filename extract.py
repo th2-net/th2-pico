@@ -35,6 +35,7 @@ SERVICE_IGNORE: List[str] = ["lib"]
 MAIN_CLASS_LINE_INDICATOR: str = "eval set --"
 CLASSPATH_INDICTOR: str = "CLASSPATH=$APP_HOME/lib/"
 LIB_DIR: str = "lib"
+BIN_DIR: str = "bin"
 
 def substring_after(s, delim):
     return s.partition(delim)[2]
@@ -94,6 +95,12 @@ class ImageExtractor(object):
         if not os.path.exists(home_dir):
             shutil.rmtree(cwd)
             return
+        for filename in os.listdir(cwd):
+            if filename == LIB_DIR:
+                shutil.rmtree(os.path.join(cwd, LIB_DIR))
+            if filename == BIN_DIR:
+                shutil.rmtree(os.path.join(cwd, BIN_DIR))
+
         for filename in os.listdir(home_dir):
             if(filename in HOME_IGNORE):
                 continue

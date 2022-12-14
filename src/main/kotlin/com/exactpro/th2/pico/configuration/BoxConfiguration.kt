@@ -23,9 +23,9 @@ import java.io.File
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BoxConfiguration(val boxName: String = "",
                             val image: String = "",
-                            val memoryLimit: String = "300Mi",
-                            val cpuLimit: String = "50M",
+                            val resources: ResourceConfig = ResourceConfig()
 ) {
+    val directoryName get() = image.split("/").last().replace(":", "_")
     companion object {
 
         private val LOGGER = KotlinLogging.logger {  }
@@ -40,3 +40,8 @@ data class BoxConfiguration(val boxName: String = "",
 
     }
 }
+
+data class ResourceConfig(val limits: ResourceValues = ResourceValues(),
+                          val requests: ResourceValues = ResourceValues())
+
+data class ResourceValues(val cpu: String = "0.1", val memory: String = "300Mi")

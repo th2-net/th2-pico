@@ -76,6 +76,7 @@ fun main(args: Array<String>) {
 
         val configuration = PicoConfiguration(componentsDir, configDir)
         unwrapLibraries(configuration.componentsDir)
+        renameComponents(configuration.componentsDir)
 
         val bootstrapType = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
 
@@ -101,6 +102,14 @@ fun main(args: Array<String>) {
     }
 }
 
+private fun renameComponents(componentsDir: File) {
+    for (file in componentsDir.listFiles() ?: emptyArray()) {
+        if(file.name.contains(":")) {
+            file.renameTo(File(file.parent, file.name.replace(":", "_")))
+        }
+    }
+}
+
 private fun unwrapLibraries(componentsDir: File) {
     val libsDir = componentsDir.resolve(LIBS_DIR)
     for(component in componentsDir.listFiles()) {
@@ -111,10 +120,10 @@ private fun unwrapLibraries(componentsDir: File) {
             LOGGER.error { "Error while unwrapping libraries files for $component. Message: ${e.message}" }
             continue
         }
-        val componentLibsDir = componentsDir.resolve(LIBS_DIR)
+        val componentLibsDir = componentsDir.resolve(component.name).resolve(LIBS_DIR)
         config.libs.forEach {
             if(directoryContainsFile(componentLibsDir, it)) return@forEach
-            libsDir.resolve(it).copyTo(componentLibsDir)
+            libsDir.resolve(it).copyTo(componentLibsDir.resolve(it))
         }
     }
 }

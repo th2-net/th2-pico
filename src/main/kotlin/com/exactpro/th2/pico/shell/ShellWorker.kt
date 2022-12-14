@@ -51,7 +51,7 @@ class ShellWorker(
         val processBuilder = ProcessBuilder(command)
         processBuilder.directory(componentFolder)
         val env = processBuilder.environment()
-        env[JAVA_OPTS] = MAX_HEAP_OPTION + boxConfig.memoryLimit.removeSuffix("i")
+        env[JAVA_OPTS] = MAX_HEAP_OPTION + boxConfig.resources.limits.memory.removeSuffix("i")
         process = processBuilder.start()
 
         val exitCode = process.waitFor()

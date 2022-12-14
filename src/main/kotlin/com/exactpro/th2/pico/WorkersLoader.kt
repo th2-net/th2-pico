@@ -46,7 +46,7 @@ object WorkersLoader {
         for(configDir in configsDir.listFiles()) {
             val boxConfig = getBoxConfiguration(configDir) ?: continue
             val componentDir = findDirectory(
-                boxConfig.image.split("/").last(),
+                boxConfig.directoryName,
                 componentsDir
             ) ?: continue
             val worker = loadClassloaderWorker(configDir, componentDir, boxConfig) ?: continue
@@ -63,8 +63,9 @@ object WorkersLoader {
         isDirectory(configsDir)
         for(configDir in configsDir.listFiles()) {
             val boxConfig = getBoxConfiguration(configDir) ?: continue
+
             val componentDir = findDirectory(
-                boxConfig.image.split("/").last(),
+                boxConfig.directoryName,
                 componentsDir
             ) ?: continue
             val worker = loadShellWorker(configDir, componentDir, boxConfig) ?: continue
@@ -171,7 +172,7 @@ object WorkersLoader {
                 return file
             }
         }
-        LOGGER.error { "Not found ${dir.name} directory. Skipping related component." }
+        LOGGER.error { "Not found $name directory. Skipping related component." }
         return null
     }
 
