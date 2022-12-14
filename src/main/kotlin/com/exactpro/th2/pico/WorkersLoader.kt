@@ -95,7 +95,7 @@ object WorkersLoader {
     ): ClassloaderWorker? {
         val classLoader = getClassLoader(componentDir) ?: return null
         val method = getMethod(componentDir, classLoader) ?: return null
-        val arguments = getArguments(configDir)
+        val arguments = getArguments(configDir, componentDir)
         LOGGER.info { "Loaded worker: ${componentDir.name}" }
         return ClassloaderWorker(method, arguments, boxConfiguration.boxName, classLoader)
     }
