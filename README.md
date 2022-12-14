@@ -170,3 +170,7 @@ where:
 - **ui-port** - port you want to run ui on
 4. run `npm run start`
 
+# Shutdown
+If you used `ctrl+c` to stop bundle, it will shut down properly with closing all resources.
+In case you killed pico with -9 option you need to use `shutdown.sh` script to close all resources properly.
+
