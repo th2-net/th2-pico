@@ -21,7 +21,11 @@ import mu.KotlinLogging
 import java.io.File
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class BoxConfiguration(val boxName: String = "", val image: String = "") {
+data class BoxConfiguration(val boxName: String = "",
+                            val image: String = "",
+                            val memoryLimit: String = "300Mi",
+                            val cpuLimit: String = "50M",
+) {
     companion object {
 
         private val LOGGER = KotlinLogging.logger {  }

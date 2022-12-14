@@ -36,9 +36,7 @@ class ClassloaderWorker(private val main: Method,
         }
     }
 
-    override fun close() {
-        loader.close()
-    }
+    override fun close() {}
 
     companion object {
         private val LOGGER = KotlinLogging.logger {  }

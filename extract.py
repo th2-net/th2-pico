@@ -103,7 +103,6 @@ class ImageExtractor(object):
         service_lib_dir = os.path.join(service_dir, LIB_DIR)
         service_main_lib = self.__extract_main_lib(service_dir + RUN_SCRIPT_POSTFIX)
         libs = []
-        print(service_main_lib)
         if os.path.exists(service_lib_dir) and os.path.isdir(service_lib_dir):
             for filename in os.listdir(service_lib_dir):
                 if filename == service_main_lib:

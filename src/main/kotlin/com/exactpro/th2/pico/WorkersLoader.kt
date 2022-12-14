@@ -86,7 +86,7 @@ object WorkersLoader {
         }
         if(!scriptPath.canExecute()) giveExecutionPermissions(scriptPath)
         val arguments = getArguments(configDir)
-        return ShellWorker(scriptPath, componentDir, arguments, boxConfiguration.boxName)
+        return ShellWorker(scriptPath, componentDir, arguments, boxConfiguration)
     }
 
     private fun loadClassloaderWorker(configDir: File,

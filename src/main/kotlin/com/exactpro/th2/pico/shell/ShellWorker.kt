@@ -17,6 +17,7 @@ package com.exactpro.th2.pico.shell
 
 import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.LOGGER
+import com.exactpro.th2.pico.configuration.BoxConfiguration
 import mu.KotlinLogging
 import java.io.BufferedReader
 import java.io.File
@@ -27,12 +28,14 @@ class ShellWorker(
     private val path: File,
     private val componentFolder: File,
     private val args: Array<String>,
-    private val componentName: String
+    private val boxConfig: BoxConfiguration
 ): IWorker {
     private lateinit var process: Process
     companion object {
         private val logger = KotlinLogging.logger {  }
         private const val BEFORE_RESTART_INTERVAL = 5000L
+        private const val MAX_HEAP_OPTION = "-Xmx"
+        private const val JAVA_OPTS = "JAVA_OPTS"
     }
 
     override fun run() {
@@ -43,25 +46,23 @@ class ShellWorker(
     }
 
     private fun startProcess() {
-        val processBuilder = ProcessBuilder(listOf(path.absolutePath) + args)
+        val command = listOf("nohup", "bash", "-c") + listOf("`${(listOf(path.absolutePath) + args).joinToString(" ")}`")
+        logger.info { "Running command ${command.joinToString(" ")}" }
+        val processBuilder = ProcessBuilder(command)
         processBuilder.directory(componentFolder)
+        val env = processBuilder.environment()
+        env[JAVA_OPTS] = MAX_HEAP_OPTION + boxConfig.memoryLimit.removeSuffix("i")
         process = processBuilder.start()
-
-        val reader = BufferedReader(InputStreamReader(process.errorStream))
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            logger.error { "$componentName: $line" }
-        }
 
         val exitCode = process.waitFor()
         if(exitCode != 0) {
-            logger.error { "$componentName script exited with non zero exit code. Restarting process." }
+            logger.error { "${boxConfig.boxName} script exited with non zero exit code. Restarting process." }
             process.destroy()
         }
     }
 
     override fun close() {
-        logger.info { "Closing process for $componentName script." }
+        logger.info { "Closing process for ${boxConfig.boxName} script." }
         if(this::process.isInitialized) process.destroy()
     }
 }

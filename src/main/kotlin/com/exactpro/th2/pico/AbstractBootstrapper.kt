@@ -17,12 +17,14 @@ package com.exactpro.th2.pico
 
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import mu.KotlinLogging
+import java.io.File
 
 abstract class AbstractBootstrapper(private val configuration: PicoConfiguration): IBootstrap {
     protected val workerThreads: MutableList<Thread> = mutableListOf()
     protected val workers: MutableList<IWorker> = mutableListOf()
 
     override fun init() {
+        generateShutdownFile()
         workers.addAll(populateWorkers())
         logger.info { "There are ${workers.size} workers loaded." }
     }
@@ -30,8 +32,10 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
     override fun start() {
         logger.info { "Starting workers" }
         populateThreadsList()
-        workerThreads.map {
+        workerThreads.forEach {
             it.start()
+        }
+        workerThreads.forEach {
             it.join()
         }
     }
@@ -41,24 +45,35 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
 
     override fun stop() {
         workerThreads.apply {
-            map { it.interrupt() }
+            forEach { it.interrupt() }
             clear()
         }
     }
 
     override fun close() {
         workerThreads.apply {
-            map { it.interrupt() }
+            forEach { it.interrupt() }
             clear()
         }
 
         workers.apply {
-            map { it.close() }
+            forEach { it.close() }
             clear()
         }
     }
 
+    private fun generateShutdownFile() {
+        // open file and create if not exist
+        val shutdown = File(SHUTDOWN)
+        shutdown.createNewFile()
+        shutdown.printWriter().use { out ->
+            out.print("ps -ef | grep -E \"${configuration.componentsDir}\" | awk '{print \$2}' | xargs kill -9")
+        }
+        shutdown.setExecutable(true)
+    }
+
     companion object {
         private val logger = KotlinLogging.logger {  }
+        private const val SHUTDOWN = "shutdown.sh"
     }
 }

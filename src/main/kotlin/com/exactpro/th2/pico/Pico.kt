@@ -22,6 +22,9 @@ import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_C
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_CONFIGS_DIR
 import com.exactpro.th2.pico.operator.PicoOperator
 import com.exactpro.th2.pico.operator.config.OperatorRunConfig
+import com.exactpro.th2.pico.operator.configDir
+/*import com.exactpro.th2.pico.operator.PicoOperator
+import com.exactpro.th2.pico.operator.config.OperatorRunConfig*/
 import com.exactpro.th2.pico.shell.ShellBootstrapper
 import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
@@ -69,7 +72,7 @@ fun main(args: Array<String>) {
             return
         }
 
-        val configuration = PicoConfiguration(componentsDir, DEFAULT_CONFIGS_DIR)
+        val configuration = PicoConfiguration(componentsDir, configDir)
         unwrapLibraries(configuration.componentsDir)
 
         val bootstrapType = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
