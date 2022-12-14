@@ -85,7 +85,7 @@ object WorkersLoader {
             scriptDir.resolve(SCRIPT_FILE_NAME)
         }
         if(!scriptPath.canExecute()) giveExecutionPermissions(scriptPath)
-        val arguments = getArguments(configDir)
+        val arguments = getArguments(configDir, componentDir)
         return ShellWorker(scriptPath, componentDir, arguments, boxConfiguration)
     }
 
@@ -107,10 +107,18 @@ object WorkersLoader {
         return clazz.getDeclaredMethod("main", Array<String>::class.java)
     }
 
-    private fun getArguments(configDir: File): Array<String> {
+    private fun getArguments(configDir: File, componentDir: File): Array<String> {
+        val libDir = componentDir.resolve(JAR_FILE_DIR)
         return arrayOf(
             CONFIGS_COMMON_ARGUMENT, configDir.absolutePath
-        )
+        ) + codecSailfishArg(libDir)
+    }
+
+    // TODO: Find better approach to it
+    private fun codecSailfishArg(libDir: File) = if(libDir.listFiles().any { it.name.contains("codec-sailfish") }) {
+        listOf("--sailfish-codec-config", "../codec_config.yml")
+    } else {
+        emptyList()
     }
 
     private fun getMainClass(dir: File): String? {
@@ -129,19 +137,17 @@ object WorkersLoader {
         dir.logDirectoryDoesNotExist()
         if(!dir.isDirectory) return null
         var mainJar: Array<URL> = arrayOf()
-        var libJars: Array<URL> = arrayOf()
         for(file in dir.listFiles()) {
             if(file.name == JAR_FILE_DIR) {
                 mainJar = file.listFiles().map { it.toURI().toURL() }.toTypedArray()
             }
         }
-        val computedLibs = mainJar + libJars
-        if(computedLibs.isEmpty()) {
+        if(mainJar.isEmpty()) {
             LOGGER.error { "Not found $JAR_FILE_DIR in ${dir.absolutePath}. Skipping related component." }
             return null
         }
 
-        return URLClassLoader(computedLibs, WorkersLoader::class.java.classLoader)
+        return URLClassLoader(mainJar, WorkersLoader::class.java.classLoader)
     }
 
     private fun getBoxConfiguration(configDir: File): BoxConfiguration? {
