@@ -22,14 +22,25 @@ Tool for bootstrapping th2 components locally.
 ## Schema repo preparation
 If version of infra of schema repo is bellow v2.0 you can use [Converter](https://github.com/th2-net/th2-cr-converter)
 1. clone converter repo
-2. run main with `"-Dconverter.config=./path/to/converter-config"`
+2. build code using `gradle build` command
+3. run jar with `"-Dconverter.config=./path/to/converter-config"`
+
 converter-config example:
 ```yaml
 git:
   localRepositoryRoot: ..\schemas -- link to schema repo directory
 ```
+4. pass appropriate arguments:
+   * `local` for running locally 
+   * `my-schema` name of the directory containing th2 schema
+   * `v2` version to with to convert
+
+example of local run command:
+`java "-Dconverter.config=./converter-config.yml"  -jar .\build\libs\th2-cr-converter-1.1.2.jar local th2-infra-schema-demo v2`
 
 This will generate new schema directory compatible with infra v2.0 and will be later required to run bundle.
+
+Generated schema will be placed at the same level as the original schema, with name `ORIGINAL_SCHEMA_NAME-converted` 
 
 ## Setup and run
 ### Cassandra setup
