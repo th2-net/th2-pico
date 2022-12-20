@@ -65,7 +65,9 @@ Another option is to install rabbitMq locally. But this option is not tested. [r
 
 ### prepare to run pico-operator
 1. put directory with box descriptions from [Prepared directory](#Schema repo preparation) into bin directory of bundle
-2. create config for operator:
+2. provide default configs for each box to be copied. bundle them in a separate directory. place logging files under `loggin` folder in this directory.
+   Add path to location of default configs in pico operator config file.
+3. create config for operator:
 ```yaml
 schemaName: schema # name of schema
 repoLocation: path/to/repository/to/generate/configs/from
@@ -96,7 +98,7 @@ grpc: # pull of grpc ports to be used by components
     start: 8091
     end: 8189
 ```
-3. you can either put config into bin folder or specify path to it with -Dpico.operator.config path/to/config.yaml during bundle startup
+4. you can either put config into bin folder or specify path to it with -Dpico.operator.config path/to/config.yaml during bundle startup
 
 ### Run bundle
 2. run bin/pico or bin/pico -b classloader
