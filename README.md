@@ -59,9 +59,7 @@ To see other configuration options checkout [RabbitMq docker image](https://hub.
 Another option is to install rabbitMq locally. But this option is not tested. [rabbitMq installation guide](https://www.rabbitmq.com/download.html)
 
 ### Bundle creation
-1. fill `images` list in extract_config with components you want to use in bundle
-2. push changes to new branch
-3. after build is finished, download bundle from artifacts ([artifacts](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprietary/th2-pico/-/pipelines))
+Take one from [here](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprietary/th2-pico-bundles/-/pipelines) or create your own using instruction from [here](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprietary/th2-pico-bundles/-/tree/demo)
 
 ### prepare to run pico-operator
 1. put directory with box descriptions from [Prepared directory](#Schema repo preparation) into bin directory of bundle
