@@ -29,10 +29,9 @@ data class BoxConfiguration(val boxName: String = "",
     companion object {
 
         private val LOGGER = KotlinLogging.logger {  }
-        private val MAPPER = ObjectMapper()
 
         fun loadConfiguration(file: File): BoxConfiguration = try {
-            MAPPER.readValue(file, BoxConfiguration::class.java)
+            Jackson.MAPPER.readValue(file, BoxConfiguration::class.java)
         } catch (e: Exception) {
             LOGGER.error { "Error while loading box configuration in ${file.absolutePath}" }
             throw IllegalStateException(e.message)

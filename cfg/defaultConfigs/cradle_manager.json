@@ -1,0 +1,8 @@
+{
+  "cradleMaxEventBatchSize": "1048576",
+  "cradleMaxMessageBatchSize": "1048576",
+  "timeout": "5000",
+  "pageSize": 5000,
+  "connectionTimeout": -1,
+  "connectionCloseTimeout": 10000
+}

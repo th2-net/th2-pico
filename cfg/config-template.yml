@@ -1,0 +1,32 @@
+repoLocation: location to schema configuration folder
+schemaName: name for schema
+rabbitMQManagement:
+  host: rabbit mq server host
+  managementPort: management port from rabbitMq (15672)
+  applicationPort: general port for rabbitMq (5672)
+  vhostName: name for the vhost on rabbit (should be crated before running the application)
+  exchangeName: exchange name for global-notifications
+  username: rabbit mq management user name
+  password: rabbit mq management password
+  persistence: flag for persistence feature on rabbitMq (true/false)
+  schemaPermissions: configuration for permission of user that will be created fot this specific schema
+    configure: ""
+    read: ""
+    write: ""
+grpc:
+  serverPorts:
+    start: starting port number
+    end: ending port number
+defaultSchemaConfigs:
+  location: location for default configs that should be copied for each schema
+  configNames: map of <configName, configFileName.extension> for default configs that are needed for each schema
+    cradle: cradle.json
+    cradleManager: cradle_manager.json
+    bookConfig: book_config.json
+    grpcRouter: grpc_router.json
+    mqRouter: mq_router.json
+    rabbitMQ: rabbitMQ.json
+    log4cxx: log4cxx.properties
+    log4j2: log4j2.properties
+    log4j: log4j.properties
+    log4py: log4py.conf

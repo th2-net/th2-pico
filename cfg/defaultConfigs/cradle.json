@@ -1,0 +1,8 @@
+{
+  "keyspace": "cradle_info",
+  "host": "localhost",
+  "port": 9042,
+  "dataCenter": "datacenter1",
+  "username": "cassandra",
+  "password": "cassandra"
+}

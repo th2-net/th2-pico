@@ -1,7 +1,13 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import com.github.jk1.license.render.*
+
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.6.21'
+    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
     id 'java'
     id 'application'
+
+    id 'com.github.jk1.dependency-license-report'
 }
 
 ext {
@@ -11,7 +17,6 @@ ext {
     log4jVersion        = '2.19.0'
 }
 
-name
 group 'com.exactpro.th2'
 version release_version
 
@@ -29,7 +34,7 @@ repositories {
         url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
 
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
@@ -37,11 +42,25 @@ repositories {
 }
 
 dependencies {
-    api platform('com.fasterxml.jackson:jackson-bom:2.13.4')
+    api platform('com.fasterxml.jackson:jackson-bom:2.14.0')
     // https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation 'commons-cli:commons-cli:1.5.0'
+    implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
 
-    implementation "com.exactpro.th2:pico-operator:0.0.3-fixes-3695570209-65aa138-SNAPSHOT"
+    implementation('com.exactpro.th2:pico-operator:1.4.0-dev') {
+        exclude group: 'org.junit.jupiter'
+        exclude group: 'org.junit'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+    }
+    //implementation('com.exactpro.th2:cr-converter-java-11:1.3.5') {
+    //    exclude group: 'org.junit.jupiter'
+    //    exclude group: 'org.junit'
+    //}
+
+    //implementation('com.exactpro.th2:th2-cr-converter:1.3.5-java-11+') {
+    //    exclude group: 'org.junit.jupiter'
+    //    exclude group: 'org.junit'
+    //}
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.jetbrains.kotlin:kotlin-reflect"
@@ -60,28 +79,55 @@ dependencies {
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
+    implementation "org.apache.commons:commons-text:1.10.0"
+
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
+configurations {
+  runtime.exclude group: 'org.junit.jupiter'
+  runtime.exclude group: 'org.junit'
+}
+
 applicationName = 'pico'
 application {
-    mainClassName = "com.exactpro.th2.pico.PicoKt"
+    mainClass.set("com.exactpro.th2.pico.PicoKt")
+    applicationDefaultJvmArgs = ['-Dpico.operator.config=../cfg/config.yml']
 }
 
-distTar {
-    archiveName "${applicationName}.tar"
-    into("$applicationName/bin")
+distributions {
+    main {
+        contents {
+            from('cfg') {
+                into 'cfg'
+            }
+            from('scripts') {
+                into 'bin'
+            }
+
+        }
+    }
 }
 
-compileKotlin {
-    kotlinOptions.jvmTarget = "11"
-}
-
-compileTestKotlin {
-    kotlinOptions.jvmTarget = "11"
+tasks.withType(KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_11)
+    }
 }
 
 test {
     useJUnitPlatform()
+}
+dependencyLocking {
+    lockAllConfigurations()
+}
+
+licenseReport {
+    renderers = [
+        new XmlReportRenderer("${project.name}-licenses.xml"),
+        new CsvCustomReportRenderer("${project.name}-licenses.csv"),
+        new JsonReportRenderer("${project.name}-licenses.json"),
+        new InventoryHtmlReportRenderer("${project.name}-licenses.html")
+    ]
 }

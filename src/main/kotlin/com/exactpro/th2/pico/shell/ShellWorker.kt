@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,49 +15,60 @@
  */
 package com.exactpro.th2.pico.shell
 
+import com.exactpro.th2.pico.ComponentState
 import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.LOGGER
+import com.exactpro.th2.pico.State
 import com.exactpro.th2.pico.configuration.BoxConfiguration
 import mu.KotlinLogging
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
-import java.util.concurrent.Executor
 
-class ShellWorker(
-    private val path: File,
+abstract class ShellWorker(
     private val componentFolder: File,
-    private val args: Array<String>,
-    private val boxConfig: BoxConfiguration
+    private val stateFolder: File,
+    protected val boxConfig: BoxConfiguration
 ): IWorker {
     private lateinit var process: Process
+    private val logger = KotlinLogging.logger(this::class.java.canonicalName)
+
     companion object {
-        private val logger = KotlinLogging.logger {  }
-        private const val BEFORE_RESTART_INTERVAL = 5000L
-        private const val MAX_HEAP_OPTION = "-Xmx"
-        private const val JAVA_OPTS = "JAVA_OPTS"
+        const val BEFORE_RESTART_INTERVAL = 5000L
     }
 
     override fun run() {
-        while (true) {
+        while (!Thread.currentThread().isInterrupted) {
             startProcess()
             Thread.sleep(BEFORE_RESTART_INTERVAL)
         }
     }
 
+    protected abstract fun buildCommand(): List<String>
+
+    protected abstract fun updateEnvironment(env: MutableMap<String, String>)
+
     private fun startProcess() {
-        val command = listOf("nohup", "bash", "-c") + listOf("`${(listOf(path.absolutePath) + args).joinToString(" ")}`")
+        val command = listOf("nohup", "bash", "-c", "`${buildCommand().joinToString(separator = " ")}`")
         logger.info { "Running command ${command.joinToString(" ")}" }
         val processBuilder = ProcessBuilder(command)
         processBuilder.directory(componentFolder)
         val env = processBuilder.environment()
-        env[JAVA_OPTS] = MAX_HEAP_OPTION + boxConfig.resources.limits.memory.removeSuffix("i")
+        updateEnvironment(env)
         process = processBuilder.start()
+
+        ComponentState(boxConfig.boxName, pid = process.pid()).also {
+            LOGGER.info { "Started component: $it" }
+            LOGGER.debug { "${it.componentName} component:  (env: $env)" }
+            it.dumpState(stateFolder)
+        }
 
         val exitCode = process.waitFor()
         if(exitCode != 0) {
             logger.error { "${boxConfig.boxName} script exited with non zero exit code. Restarting process." }
             process.destroy()
+            ComponentState(boxConfig.boxName,State.RESTARTING, null).also {
+                LOGGER.info { "Stopped component: $it" }
+                it.dumpState(stateFolder)
+            }
         }
     }
 

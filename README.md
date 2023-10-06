@@ -1,6 +1,27 @@
 # Pico
 Tool for bootstrapping th2 components locally.
 
+## Demo
+This schema is example of working pico bundle which is based on [link](https://github.com/th2-net/th2-infra-schema-demo/tree/ver-1.6.1-main_scenario)
+1. sim and reads are already in bundle (not external boxes as described in link)
+2. you need to run recon and ui by yourself. (Not supported features)[#Not supported features]
+
+
+## Run demo
+1. Download artifact from [artifacts](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprietary/th2-pico/-/pipelines)
+2. Unzip the artifact
+3. Create "work" directory near bin and cfg directories
+4. Download bundle images from [bundle_images](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprietary/th2-pico-bundles/-/pipelines)
+5. unzip images and put component directory near "work" "bin" and "cfg" directories (bin  cfg  components  configs  lib  logs  th2-infra-schema-demo-converted  work)
+6. Download and prepare a schema (described below). Put converted schema to th2-infra-schema-demo-converted directory
+7. Setup cassandra and rabbit as described in [rabbit](#RabbitMq setup), [cassandra](#Cassandra setup)
+8. Go to bin directory and run ./pico -m full -w ../work -o ../components (will generate configs for all components and will setup queues in rabbitmq)
+9. Stop pico by Ctrl+C
+10. This is temporary step. Pico will change these configs in the future by itself. Change all `workspace` property in all configs to `absolute/path/to/pico/work/name_of_box/`
+11. Run pico without regenerating the config run ./pico -w ../work -o ../components
+
+
+
 ## Usage
 ```
  -b,--bootstrap-type <arg>   Type of bootstrapping to use for the bundle.
@@ -8,7 +29,7 @@ Tool for bootstrapping th2 components locally.
                              classloader
  -h,--help                   Displays this help message.
  -m,--mode <arg>             Operator mode to run. Possible values: full,
-                             configs. Default: full
+                             configs, none. Default: none
  -o,--components <arg>       Absolute or relative path to the directory
                              containing component files. Default: bin/components
 ```
@@ -17,26 +38,26 @@ Tool for bootstrapping th2 components locally.
 - mode
   - full: pico-operator will generate config files for the components and will generate rabbitMq queues and links.
   - configs: only configs will be generated
+  - none: pico operator will not be used
 - components dir - path to dir where component libs and starter script is located
 
 ## Schema repo preparation
 If version of infra of schema repo is bellow v2.0 you can use [Converter](https://github.com/th2-net/th2-cr-converter)
-1. clone converter repo
-2. build code using `gradle build` command
-3. run jar with `"-Dconverter.config=./path/to/converter-config"`
+The converter binaries already included to pico package. In order to use it:
+1. clone or copy a schema inside demo_schema directory near work bin and etc. For instance ls demo_schema outputs th2-infra-schema-demo, where th2-infra-schema-demo is output of git clone https://github.com/th2-net/th2-infra-schema-demo.git
+2. run ./bin/schema-converter local th2-infra-schema-demo v2
+3. if no problems directory demo_schema has to contain converter directory th2-infra-schema-demo-converted
 
-converter-config example:
+schema-converter script uses cfg/schema_converter.cfg config file:
 ```yaml
 git:
-  localRepositoryRoot: ..\schemas -- link to schema repo directory
+  localRepositoryRoot: ..\demo_schema -- link to schema repo directory
 ```
-4. pass appropriate arguments:
+Arguments which was passed to the script:
    * `local` for running locally 
-   * `my-schema` name of the directory containing th2 schema
+   * `my-schema` name of the directory containing th2 schema inside directory specified in the config file
    * `v2` version to with to convert
 
-example of local run command:
-`java "-Dconverter.config=./converter-config.yml"  -jar .\build\libs\th2-cr-converter-1.1.2.jar local th2-infra-schema-demo v2`
 
 This will generate new schema directory compatible with infra v2.0 and will be later required to run bundle.
 
@@ -52,6 +73,7 @@ Generated schema will be placed at the same level as the original schema, with n
 
 ### RabbitMq setup
 1. run `docker run -d --hostname th2 --name some-rabbit -e RABBITMQ_DEFAULT_VHOST=th2 -p 15672:15672 -p 5672:5672 rabbitmq:3-management`
+script for running this is located at bin directory
 This will create rabbitMq container with management plugin and default vhost `th2`, management port 15672 and default application port 5672 and guest/guest credentials.
 
 To see other configuration options checkout [RabbitMq docker image](https://hub.docker.com/_/rabbitmq)
@@ -78,6 +100,9 @@ defaultSchemaConfigs:
     grpcRouter: grpc_router.json
     mqRouter: mq_router.json
     rabbitMQ: rabbitMQ.json
+    log4j2Config: log4j2.properties
+    log4pyConfig: log4py.conf
+    zeroLogConfig: zerolog.properties
 rabbitMQManagement:
   host: localhost
   managementPort: 15672
@@ -185,3 +210,16 @@ where:
 If you used `ctrl+c` to stop bundle, it will shut down properly with closing all resources.
 In case you killed pico with -9 option you need to use `shutdown.sh` script to close all resources properly.
 
+# Release notes
+
+## 0.0.2
+
+### Feature:
++ added log4j2Config, log4pyConfig, zeroLogConfig config names.
+
+### Fix:
++ the `Started component ...` info log prints too long line. 
++ conditionally using `cradle manager` and `grpc router` configs from component custom resource.
+
+### Update:
++ pico-operator `1.4.0-dev`

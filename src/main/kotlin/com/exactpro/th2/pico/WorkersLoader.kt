@@ -18,22 +18,28 @@ package com.exactpro.th2.pico
 import com.exactpro.th2.pico.classloader.ClassloaderWorker
 import com.exactpro.th2.pico.configuration.BoxConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration
+import com.exactpro.th2.pico.shell.BaseShellWorker
+import com.exactpro.th2.pico.shell.CustomExecutionConfiguration
+import com.exactpro.th2.pico.shell.CustomExecutionShellWorker
 import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
+import org.apache.commons.io.FileUtils
 import java.io.File
+import java.io.FileFilter
 import java.lang.reflect.Method
 import java.net.URL
 import java.net.URLClassLoader
 import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermissions
+import java.util.LinkedList
 
 object WorkersLoader {
     private const val MAIN_CLASS_FILE_NAME = "mainclass"
     private const val JAR_FILE_DIR = "lib"
     private const val SCRIPT_DIRECTORY = "bin"
     private const val SCRIPT_FILE_NAME = "service"
-    private const val BOX_CONFIG_FILENAME = "boxSpec.json"
+    private const val BOX_CONFIG_FILENAME = "boxConfig.json"
     private const val CONFIGS_COMMON_ARGUMENT = "--configs"
+    private const val CUSTOM_EXECUTION_CONFIG = "execute.json"
 
     private val LOGGER = KotlinLogging.logger {  }
 
@@ -43,32 +49,61 @@ object WorkersLoader {
         val configsDir = configuration.configsDir
         isDirectory(componentsDir)
         isDirectory(configsDir)
-        for(configDir in configsDir.listFiles()) {
+        for(configDir in configsDir.saveListFiles()) {
             val boxConfig = getBoxConfiguration(configDir) ?: continue
             val componentDir = findDirectory(
                 boxConfig.directoryName,
                 componentsDir
             ) ?: continue
             val worker = loadClassloaderWorker(configDir, componentDir, boxConfig) ?: continue
-            workers.add(worker);
+            workers.add(worker)
         }
-        return workers;
+        return workers
     }
 
     fun loadShellWorkers(configuration: PicoConfiguration): List<ShellWorker> {
         val workers = mutableListOf<ShellWorker>()
         val componentsDir = configuration.componentsDir
         val configsDir = configuration.configsDir
+        val workDir = File(configuration.workPathName)
+        val stateFolder = configuration.stateFolder
+
         isDirectory(componentsDir)
         isDirectory(configsDir)
-        for(configDir in configsDir.listFiles()) {
+        isDirectory(workDir)
+        for ( configDir in configsDir.saveListFiles()) {
             val boxConfig = getBoxConfiguration(configDir) ?: continue
 
             val componentDir = findDirectory(
                 boxConfig.directoryName,
                 componentsDir
             ) ?: continue
-            val worker = loadShellWorker(configDir, componentDir, boxConfig) ?: continue
+
+            //First of all check that workDirectory contains this service.
+            val boxWorkDir = workDir.resolve(configDir.name)
+
+            if ( boxWorkDir.exists()) {
+                //if the box directory exists, the bootstrapper won't check that the directory is in up-to-date
+                //if a user would like to have the fresh copy, he/she just needs to remove boxWorkDir
+            } else {
+                //prepare box work dir
+                if ( boxWorkDir.mkdir() ) {
+                    FileUtils.copyDirectory(componentDir, boxWorkDir, false)
+
+                    val relativeCommonLibsDir = boxWorkDir.toPath().toAbsolutePath().relativize(componentsDir.toPath().toAbsolutePath().resolve("lib")).toFile()
+                    val relativeComponentDir= boxWorkDir.toPath().toAbsolutePath().relativize(componentDir.toPath().toAbsolutePath()).toFile()
+                    //Change service file for Java boxes
+                    changeJavaBoxServiceFile(componentDir, boxWorkDir, relativeComponentDir, relativeCommonLibsDir)
+
+                } else {
+                    ComponentState(boxConfig.boxName, State.CONFIGURATION_ERROR, null, "Could not create $boxWorkDir for this box.").also {
+                        it.dumpState(stateFolder)
+                    }
+                    LOGGER.error("Could not create {}", boxWorkDir.absolutePath)
+                }
+            }
+
+            val worker = loadShellWorker(configDir, boxWorkDir, boxConfig, stateFolder) ?: continue
             workers.add(worker)
         }
         return workers
@@ -76,9 +111,18 @@ object WorkersLoader {
 
     private fun loadShellWorker(configDir: File,
                                 componentDir: File,
-                                boxConfiguration: BoxConfiguration
+                                boxConfiguration: BoxConfiguration,
+                                stateFolder: File
     ): ShellWorker? {
-        val scriptDir = findDirectory(SCRIPT_DIRECTORY, componentDir) ?: return null
+        componentDir.resolve(CUSTOM_EXECUTION_CONFIG).takeIf { it.exists() }?.also {
+            return createCustomShellWorker(it, boxConfiguration, configDir, stateFolder, componentDir)
+        }
+        val scriptDir = findDirectory(SCRIPT_DIRECTORY, componentDir) ?: kotlin.run {
+            ComponentState(boxConfiguration.boxName, State.CONFIGURATION_ERROR, null, "Could not find ${SCRIPT_DIRECTORY} directory with bash script to run.").also {
+                it.dumpState(stateFolder)
+            }
+            return null
+        }
         val operatingSystem = System.getProperty("os.name")
         val scriptPath = if (operatingSystem.contains("Windows")) {
             scriptDir.resolve("$SCRIPT_FILE_NAME.bat")
@@ -87,7 +131,92 @@ object WorkersLoader {
         }
         if(!scriptPath.canExecute()) giveExecutionPermissions(scriptPath)
         val arguments = getArguments(configDir, componentDir)
-        return ShellWorker(scriptPath, componentDir, arguments, boxConfiguration)
+        return BaseShellWorker(scriptPath, componentDir, arguments, stateFolder, boxConfiguration, configDir.absolutePath)
+    }
+
+    private fun createCustomShellWorker(
+        customExecutionConfigFile: File,
+        boxConfiguration: BoxConfiguration,
+        configDir: File,
+        stateFolder: File,
+        componentDir: File,
+    ): ShellWorker? {
+        val config: CustomExecutionConfiguration = try {
+            CustomExecutionConfiguration.load(customExecutionConfigFile)
+        } catch (ex: Exception) {
+            LOGGER.error(ex) { "cannot load custom execution configuration from $customExecutionConfigFile" }
+            ComponentState(
+                boxConfiguration.boxName,
+                State.CONFIGURATION_ERROR,
+                null,
+                "cannot load custom execution configuration: ${ex.message}",
+            ).also {
+                it.dumpState(stateFolder)
+            }
+            return null
+        }
+
+        return CustomExecutionShellWorker(
+            config,
+            stateFolder,
+            boxConfiguration,
+            configDir.absoluteFile,
+            componentDir,
+        )
+    }
+
+
+    private fun changeJavaBoxServiceFile(componentDir : File, boxWorkDir : File, componentDirRelative : File, commonLibsDirRelative : File) {
+        val binDir  = boxWorkDir.resolve("bin")
+
+        if ( binDir.exists() ) {
+
+            binDir.saveListFiles { pathname -> pathname.name.startsWith("service") }.forEach{serviceFile ->
+                run {
+
+                    val lines = serviceFile.readLines()
+                    val newLines = LinkedList<String>()
+                    val classPathToken = "CLASSPATH="
+                    for (i: Int in lines.indices) {
+
+                        if (lines[i].startsWith(classPathToken)) {
+                            val classpath = lines[i].substring(classPathToken.length)
+
+                            val libs = classpath.split(File.pathSeparator)
+
+                            val newLibs = LinkedList<String>()
+
+                            newLines.add("PICO_COMMON_LIBS=$commonLibsDirRelative")
+                            newLines.add("PICO_IMAGE_LIB=" + componentDirRelative.resolve("lib").toString())
+                            newLines.add("PICO_IMAGE_CODEC_LIB=" + componentDirRelative.resolve("codec_implementation").toString())
+
+                            for (libPath in libs) {
+                                val index = libPath.lastIndexOf(File.separator)
+
+                                val libName = libPath.substring(if (index > 0) index + 1  else 0)
+
+                                //First check that the library is located in lib directory of the image
+                                if (componentDir.resolve("lib").resolve(libName).exists()) {
+                                    newLibs.add("\$PICO_IMAGE_LIB" + File.separator + libName)
+                                } else if (componentDir.resolve("codec_implementation").resolve(libName).exists())
+                                    newLibs.add("\$PICO_IMAGE_CODEC_LIB" + File.separator + libName)
+                                else {
+                                    newLibs.add("\$PICO_COMMON_LIBS" + File.separator + libName)
+                                }
+                            }
+
+                            newLines.add(classPathToken + newLibs.joinToString(File.pathSeparator))
+
+                        } else {
+                            newLines.add(lines[i])
+                        }
+
+                    }
+                    Files.write(serviceFile.toPath(), newLines)
+
+                }
+            }
+        }
     }
 
     private fun loadClassloaderWorker(configDir: File,
@@ -112,20 +241,26 @@ object WorkersLoader {
         val libDir = componentDir.resolve(JAR_FILE_DIR)
         return arrayOf(
             CONFIGS_COMMON_ARGUMENT, configDir.absolutePath
-        ) + codecSailfishArg(libDir)
+        ) + codecSailfishArg(libDir, componentDir)
     }
 
     // TODO: Find better approach to it
-    private fun codecSailfishArg(libDir: File) = if(libDir.listFiles().any { it.name.contains("codec-sailfish") }) {
-        listOf("--sailfish-codec-config", "../codec_config.yml")
-    } else {
-        emptyList()
+    private fun codecSailfishArg(libDir: File, componentDir: File): List<String> {
+        if (!libDir.isDirectory) {
+            return emptyList()
+        }
+
+        return if(libDir.saveListFiles().any { it.name.contains("codec-sailfish") }) {
+            listOf("--sailfish-codec-config", componentDir.resolve("codec_config.yml").absolutePath)
+        } else {
+            emptyList()
+        }
     }
 
     private fun getMainClass(dir: File): String? {
         dir.logDirectoryDoesNotExist()
         if(!dir.isDirectory) return null
-        for(file in dir.listFiles()) {
+        for(file in dir.saveListFiles()) {
             if(file.name == MAIN_CLASS_FILE_NAME) {
                 return file.readLines().first()
             }
@@ -138,9 +273,9 @@ object WorkersLoader {
         dir.logDirectoryDoesNotExist()
         if(!dir.isDirectory) return null
         var mainJar: Array<URL> = arrayOf()
-        for(file in dir.listFiles()) {
+        for(file in dir.saveListFiles()) {
             if(file.name == JAR_FILE_DIR) {
-                mainJar = file.listFiles().map { it.toURI().toURL() }.toTypedArray()
+                mainJar = file.saveListFiles().map { it.toURI().toURL() }.toTypedArray()
             }
         }
         if(mainJar.isEmpty()) {
@@ -154,7 +289,7 @@ object WorkersLoader {
     private fun getBoxConfiguration(configDir: File): BoxConfiguration? {
         configDir.logDirectoryDoesNotExist()
         if(!configDir.isDirectory) return null
-        for(configFile in configDir.listFiles()) {
+        for(configFile in configDir.saveListFiles()) {
             if(configFile.name == BOX_CONFIG_FILENAME) {
                 return BoxConfiguration.loadConfiguration(configFile)
             }
@@ -166,7 +301,7 @@ object WorkersLoader {
     private fun findDirectory(name: String, dir: File): File? {
         dir.logDirectoryDoesNotExist()
         if(!dir.isDirectory) return null
-        for(file in dir.listFiles()) {
+        for(file in dir.saveListFiles()) {
             if(file.name == name) {
                 isDirectory(dir)
                 return file
@@ -186,5 +321,13 @@ object WorkersLoader {
 
     private fun File.logDirectoryDoesNotExist() {
         if(!isDirectory) LOGGER.error { "$this is not a directory. Skipping related component." }
+    }
+
+    private fun File.saveListFiles() = requireNotNull(listFiles()) {
+        "directory $this does not exist or application does not have permissions to read it"
+    }
+
+    private fun File.saveListFiles(filter: FileFilter) = requireNotNull(listFiles(filter)) {
+        "directory $this does not exist or application does not have permissions to read it"
     }
 }

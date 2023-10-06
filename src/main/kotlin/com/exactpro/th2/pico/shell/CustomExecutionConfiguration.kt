@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.pico
 
+package com.exactpro.th2.pico.shell
+
+import com.exactpro.th2.pico.configuration.Jackson
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.File
 
-interface IWorker: Runnable, AutoCloseable
+data class CustomExecutionConfiguration(
+    val env: Map<String, String>,
+    val command: List<String>,
+) {
+    companion object {
+        @JvmStatic
+        fun load(path: File): CustomExecutionConfiguration = Jackson.MAPPER.readValue(path)
+    }
+}

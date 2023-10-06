@@ -23,10 +23,13 @@ import java.io.IOException
 
 data class PicoConfiguration(
     private val componentsPath: String,
-    private val configsPath: String
+    private val configsPath: String,
+    val workPathName: String,
+    private val stateFolderPath: String
 ) {
     val componentsDir: File by lazy { findPath(componentsPath) {"Not found components dir by path: $componentsPath"} }
     val configsDir: File by lazy { findPath(configsPath) {"Not found configs dir by path: $configsPath"} }
+    val stateFolder: File by lazy { File(stateFolderPath).also { if(!it.exists()) it.mkdirs() } }
 
     private fun findPath(path: String, message: () -> String): File {
         val absolute = File(System.getProperty("user.dir") + File.separator + File(path))
@@ -43,6 +46,7 @@ data class PicoConfiguration(
     companion object {
 
         val DEFAULT_COMPONENTS_DIR = System.getProperty("user.dir") + File.separator + "components" + File.separator
+        val DEFAULT_STATE_FOLDER = System.getProperty("user.dir") + File.separator + "states" + File.separator
         val DEFAULT_CONFIGS_DIR = System.getProperty("user.dir") + File.separator + "configs" + File.separator
     }
 }

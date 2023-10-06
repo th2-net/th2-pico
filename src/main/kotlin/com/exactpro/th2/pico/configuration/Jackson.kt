@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.pico.configuration
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import mu.KotlinLogging
-import java.io.File
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
-data class LibsConfig(val libs: List<String> = listOf()) {
-
-    companion object {
-
-        private val LOGGER = KotlinLogging.logger {  }
-
-        fun loadConfiguration(file: File): LibsConfig = try {
-            Jackson.MAPPER.readValue(file, LibsConfig::class.java)
-        } catch (e: Exception) {
-            LOGGER.error { "Error while loading libs configuration in ${file.absolutePath}" }
-            throw IllegalStateException(e.message)
-        }
-
-    }
+object Jackson {
+    @JvmField
+    val MAPPER: ObjectMapper = jacksonObjectMapper()
+        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+        .registerModule(JavaTimeModule())
 }

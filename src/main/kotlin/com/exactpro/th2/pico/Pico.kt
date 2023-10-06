@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,13 @@
 package com.exactpro.th2.pico
 
 import com.exactpro.th2.pico.classloader.ClassloaderBootstrapper
-import com.exactpro.th2.pico.configuration.LibsConfig
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_COMPONENTS_DIR
-import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_CONFIGS_DIR
+import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_STATE_FOLDER
 import com.exactpro.th2.pico.operator.PicoOperator
 import com.exactpro.th2.pico.operator.config.OperatorRunConfig
 import com.exactpro.th2.pico.operator.configDir
-/*import com.exactpro.th2.pico.operator.PicoOperator
-import com.exactpro.th2.pico.operator.config.OperatorRunConfig*/
 import com.exactpro.th2.pico.shell.ShellBootstrapper
-import com.exactpro.th2.pico.shell.ShellWorker
 import mu.KotlinLogging
 import org.apache.commons.cli.CommandLineParser
 import org.apache.commons.cli.DefaultParser
@@ -39,14 +35,19 @@ import kotlin.system.exitProcess
 
 
 fun main(args: Array<String>) {
+    LOGGER.info { "Pico is starting, user dir: ${System.getProperty("user.dir")}" }
     val options = Options()
 
     val componentsOption = Option("o", "components", true, "Absolute or relative path to the directory containing component files.")
+    val workDirectoryNameOption = Option("w", "workDir", true, "Absolute or relative path to the work directory where pico manages all boxes instances.")
+    val stateFolderOption = Option("s", "stateFolder", true, "Absolute or relative path to directory where component states will be published.")
     val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: full, configs, none. Default: none")
     val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for the bundle. Possible values: shell, classloader. Default: classloader")
     val helpOption = Option("h", "help", false, "Displays this help message.")
 
     options.addOption(componentsOption)
+    options.addOption(workDirectoryNameOption)
+    options.addOption(stateFolderOption)
     options.addOption(operatorMode)
     options.addOption(bootstrapType)
     options.addOption(helpOption)
@@ -64,6 +65,14 @@ fun main(args: Array<String>) {
             cmdArgs.getOptionValue(componentsOption)
         } else DEFAULT_COMPONENTS_DIR
 
+        val workDirName = if(cmdArgs.hasOption(workDirectoryNameOption)) {
+            cmdArgs.getOptionValue(workDirectoryNameOption)
+        } else WORKING_DIR
+
+        val stateFolder = if(cmdArgs.hasOption(stateFolderOption)) {
+            cmdArgs.getOptionValue(stateFolderOption)
+        } else DEFAULT_STATE_FOLDER
+
         if(cmdArgs.hasOption(operatorMode)) {
             val mode = cmdArgs.getOptionValue(operatorMode)
             try {
@@ -74,13 +83,16 @@ fun main(args: Array<String>) {
             }
         }
 
-        val configuration = PicoConfiguration(componentsDir, configDir)
-        unwrapLibraries(configuration.componentsDir)
-        renameComponents(configuration.componentsDir)
+        val workDirFile = File(workDirName)
+        if ( !workDirFile.exists()) {
+            workDirFile.mkdirs()
+        }
 
-        val bootstrapType = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
+        val configuration = PicoConfiguration(componentsDir, configDir, workDirName, stateFolder)
 
-        val bootstrapper = when(bootstrapType) {
+        val bootstrapTypeValue = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
+
+        val bootstrapper = when(bootstrapTypeValue) {
             "classloader" -> ClassloaderBootstrapper(configuration)
             "shell" -> ShellBootstrapper(configuration)
             else -> throw IllegalStateException("unreachable")
@@ -88,10 +100,21 @@ fun main(args: Array<String>) {
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
                 bootstrapper.close()
+                ComponentState("pico", com.exactpro.th2.pico.State.STOPPED).also {
+                    LOGGER.info { "Pico stopped: ${it}" }
+                    it.dumpState(configuration.stateFolder)
+                }
             }
         })
         bootstrapper.init()
         try {
+            val picoState = ComponentState(
+                "pico",
+                State.RUNNING,
+                ProcessHandle.current().pid(),
+            )
+            LOGGER.info { "Started pico: $picoState" }
+            picoState.dumpState(configuration.stateFolder)
             bootstrapper.start()
         } catch (e: Exception) {
             exitProcess(1)
@@ -102,44 +125,5 @@ fun main(args: Array<String>) {
     }
 }
 
-private fun renameComponents(componentsDir: File) {
-    for (file in componentsDir.listFiles() ?: emptyArray()) {
-        if(file.name.contains(":")) {
-            file.renameTo(File(file.parent, file.name.replace(":", "_")))
-        }
-    }
-}
-
-private fun unwrapLibraries(componentsDir: File) {
-    val libsDir = componentsDir.resolve(LIBS_DIR)
-    for(component in componentsDir.listFiles()) {
-        if(component.name == LIBS_DIR) continue
-        val config = try {
-            LibsConfig.loadConfiguration(component.resolve(File(LIBS_JSON_FILE)))
-        } catch (e: Exception) {
-            LOGGER.error { "Error while unwrapping libraries files for $component. Message: ${e.message}" }
-            continue
-        }
-        val componentLibsDir = componentsDir.resolve(component.name).resolve(LIBS_DIR)
-        config.libs.forEach {
-            if(directoryContainsFile(componentLibsDir, it)) return@forEach
-            libsDir.resolve(it).copyTo(componentLibsDir.resolve(it))
-        }
-    }
-}
-
-private fun directoryContainsFile(directory: File, fileName: String): Boolean {
-    val files = directory.listFiles() ?: return false
-
-    for (file in files) {
-        if (file.isFile && file.name == fileName) {
-            return true
-        }
-    }
-
-    return false
-}
-
 val LOGGER = KotlinLogging.logger {  }
-private const val LIBS_JSON_FILE = "libConfig.json"
-private const val LIBS_DIR = "lib"
+private const val WORKING_DIR = "../work"

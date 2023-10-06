@@ -13,9 +13,9 @@ before_script:
 distribution:
   stage: publish
   script:
-    - ./gradlew distTar
+    - ./gradlew distZip
   artifacts:
     paths:
-      - build/distributions/pico*.tar
+      - build/distributions/pico*.zip
     expire_in: 1 week
 

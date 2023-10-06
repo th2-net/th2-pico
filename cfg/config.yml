@@ -1,0 +1,33 @@
+schemaName: schema
+repoLocation: ../th2-infra-schema-demo-converted
+generatedConfigsLocation: ../configs
+defaultSchemaConfigs:
+  location: ../cfg/defaultConfigs
+  configNames:
+    cradle: cradle.json
+    cradleManager: cradle_manager.json
+    bookConfig: book_config.json
+    grpcRouter: grpc_router.json
+    mqRouter: mq_router.json
+    rabbitMQ: rabbitMQ.json
+prometheus:
+  enabled: true
+  start: 9000
+  end: 9090
+rabbitMQManagement:
+  host: localhost
+  managementPort: 15672
+  applicationPort: 5672
+  vhostName: th2
+  exchangeName: global-notification
+  username: guest
+  password: guest
+  persistence: true
+  schemaPermissions:
+    configure: ""
+    read: ".*"
+    write: ".*"
+grpc:
+  serverPorts:
+    start: 8091
+    end: 8189

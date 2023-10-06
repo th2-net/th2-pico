@@ -1,0 +1,1 @@
+ps -ef | grep -E "/home/exp.exactpro.com/maxim.rudovsky/work/picoth2/runner/th2-pico/../bundle/bundle/components" | awk '{print $2}' | xargs kill -9
