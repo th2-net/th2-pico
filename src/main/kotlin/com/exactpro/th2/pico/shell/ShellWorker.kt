@@ -20,26 +20,77 @@ import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.LOGGER
 import com.exactpro.th2.pico.State
 import com.exactpro.th2.pico.configuration.BoxConfiguration
+import mu.KLogger
 import mu.KotlinLogging
 import java.io.File
+import java.util.concurrent.TimeUnit.MILLISECONDS
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
+import kotlin.streams.toList
 
 abstract class ShellWorker(
     private val componentFolder: File,
     private val stateFolder: File,
     protected val boxConfig: BoxConfiguration
 ): IWorker {
+    private val lock = ReentrantReadWriteLock()
     private lateinit var process: Process
     private val logger = KotlinLogging.logger(this::class.java.canonicalName)
 
+    override val name: String
+        get() = boxConfig.boxName
+
     companion object {
+        private const val CLOSE_PROCESS_TIMEOUT = 30000L
         const val BEFORE_RESTART_INTERVAL = 5000L
+
+        private fun ProcessHandle.destroy(logger: KLogger, name: String) {
+            val nameAndPid = "${name}.${pid()}"
+            destroy()
+            if (!destroy()) {
+                logger.info { "$nameAndPid descendant process couldn't stopped during $CLOSE_PROCESS_TIMEOUT, $MILLISECONDS. Closing process forcibly" }
+                destroyForcibly()
+                return
+            }
+            logger.info { "$nameAndPid descendant process closed gracefully" }
+        }
+
+        // Destroy all descendants process manually is important when pico process SIGTERM signal.
+        private fun Process.destroyFamily(logger: KLogger, name: String) {
+            val nameAndPid = "${name}.${pid()}"
+            val descendants = descendants().toList()
+            if (descendants.isNotEmpty()) {
+                logger.info { "Closing descendants (${descendants.map(ProcessHandle::pid)}) processes for $nameAndPid script." }
+                descendants.forEach { descendant ->
+                    descendant.destroy(logger, nameAndPid)
+                }
+            }
+
+            logger.info { "Closing $nameAndPid script." }
+            destroy()
+            if (!waitFor(CLOSE_PROCESS_TIMEOUT, MILLISECONDS)) {
+                logger.info { "$nameAndPid script during $CLOSE_PROCESS_TIMEOUT, $MILLISECONDS. Closing process forcibly" }
+                destroyForcibly()
+                return
+            }
+            logger.info { "$nameAndPid script closed gracefully" }
+        }
     }
 
     override fun run() {
         while (!Thread.currentThread().isInterrupted) {
-            startProcess()
-            Thread.sleep(BEFORE_RESTART_INTERVAL)
+            runCatching {
+                startProcess()
+                Thread.sleep(BEFORE_RESTART_INTERVAL)
+            }.onFailure {
+                when (it) {
+                    is InterruptedException -> Thread.currentThread().interrupt()
+                    else -> logger.error(it) { "Internal exception in $name component" }
+                }
+            }
         }
+        logger.info { "Watcher thread for $name component is interrupted" }
     }
 
     protected abstract fun buildCommand(): List<String>
@@ -47,15 +98,17 @@ abstract class ShellWorker(
     protected abstract fun updateEnvironment(env: MutableMap<String, String>)
 
     private fun startProcess() {
-        val command = listOf("nohup", "bash", "-c", "`${buildCommand().joinToString(separator = " ")}`")
+        val command = listOf("bash", "-c", "`${buildCommand().joinToString(separator = " ")}`")
         logger.info { "Running command ${command.joinToString(" ")}" }
         val processBuilder = ProcessBuilder(command)
         processBuilder.directory(componentFolder)
         val env = processBuilder.environment()
         updateEnvironment(env)
-        process = processBuilder.start()
+        lock.write {
+            process = processBuilder.start()
+        }
 
-        ComponentState(boxConfig.boxName, pid = process.pid()).also {
+        ComponentState(name, pid = process.pid()).also {
             LOGGER.info { "Started component: $it" }
             LOGGER.debug { "${it.componentName} component:  (env: $env)" }
             it.dumpState(stateFolder)
@@ -63,9 +116,9 @@ abstract class ShellWorker(
 
         val exitCode = process.waitFor()
         if(exitCode != 0) {
-            logger.error { "${boxConfig.boxName} script exited with non zero exit code. Restarting process." }
-            process.destroy()
-            ComponentState(boxConfig.boxName,State.RESTARTING, null).also {
+            logger.error { "$name script exited with non zero exit code. Restarting process." }
+            process.destroyFamily(logger, name)
+            ComponentState(name,State.RESTARTING, null).also {
                 LOGGER.info { "Stopped component: $it" }
                 it.dumpState(stateFolder)
             }
@@ -73,7 +126,11 @@ abstract class ShellWorker(
     }
 
     override fun close() {
-        logger.info { "Closing process for ${boxConfig.boxName} script." }
-        if(this::process.isInitialized) process.destroy()
+        logger.info { "Closing process for $name script." }
+        lock.read {
+            if(this::process.isInitialized) {
+                process.destroyFamily(logger, name)
+            }
+        }
     }
 }

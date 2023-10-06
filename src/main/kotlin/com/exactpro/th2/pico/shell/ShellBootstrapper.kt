@@ -24,7 +24,7 @@ class ShellBootstrapper(private val config: PicoConfiguration): AbstractBootstra
     override fun populateThreadsList() {
         for (worker in workers) {
             check(worker is ShellWorker)
-            val thread = Thread(worker)
+            val thread = Thread(worker, "${worker.name}-watcher")
             workerThreads.add(thread)
         }
     }

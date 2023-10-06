@@ -1,4 +1,4 @@
-# Pico
+# Pico (0.0.3)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -211,6 +211,9 @@ If you used `ctrl+c` to stop bundle, it will shut down properly with closing all
 In case you killed pico with -9 option you need to use `shutdown.sh` script to close all resources properly.
 
 # Release notes
+
+## 0.0.3
++ added logic for destroying descendants process for run component
 
 ## 0.0.2
 

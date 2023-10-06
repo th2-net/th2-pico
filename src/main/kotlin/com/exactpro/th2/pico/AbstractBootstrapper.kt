@@ -67,7 +67,7 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
         val shutdown = File(SHUTDOWN)
         shutdown.createNewFile()
         shutdown.printWriter().use { out ->
-            out.print("ps -ef | grep -E \"${configuration.componentsDir}\" | awk '{print \$2}' | xargs kill -9")
+            out.print("ps -ef | grep -E \"${configuration.configsDir}\" | awk '{print \$2}' | xargs kill -9")
         }
         shutdown.setExecutable(true)
     }

@@ -99,10 +99,14 @@ fun main(args: Array<String>) {
         }
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
-                bootstrapper.close()
-                ComponentState("pico", com.exactpro.th2.pico.State.STOPPED).also {
-                    LOGGER.info { "Pico stopped: ${it}" }
-                    it.dumpState(configuration.stateFolder)
+                runCatching {
+                    bootstrapper.close()
+                    ComponentState("pico", com.exactpro.th2.pico.State.STOPPED).also {
+                        LOGGER.info { "Pico stopped: $it" }
+                        it.dumpState(configuration.stateFolder)
+                    }
+                }.onFailure {
+                    LOGGER.error(it) { "Shutdown process failure" }
                 }
             }
         })

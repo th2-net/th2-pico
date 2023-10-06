@@ -23,15 +23,15 @@ import java.net.URLClassLoader
 
 class ClassloaderWorker(private val main: Method,
                         private val args: Array<String>,
-                        private val componentName: String,
+                        override val name: String,
                         val loader: URLClassLoader
 ): IWorker {
     override fun run() {
-        LOGGER.info { "Started worker: $componentName" }
+        LOGGER.info { "Started worker: $name" }
         try {
             main.invoke(null, args)
         } catch (e: Exception) {
-            LOGGER.error { "Exception while running $componentName. $e" }
+            LOGGER.error { "Exception while running $name. $e" }
             throw e
         }
     }
