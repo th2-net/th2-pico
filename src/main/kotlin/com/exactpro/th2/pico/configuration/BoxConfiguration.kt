@@ -16,7 +16,6 @@
 package com.exactpro.th2.pico.configuration
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import java.io.File
 
@@ -33,7 +32,7 @@ data class BoxConfiguration(val boxName: String = "",
         fun loadConfiguration(file: File): BoxConfiguration = try {
             Jackson.MAPPER.readValue(file, BoxConfiguration::class.java)
         } catch (e: Exception) {
-            LOGGER.error { "Error while loading box configuration in ${file.absolutePath}" }
+            LOGGER.error(e) { "Error while loading box configuration in ${file.absolutePath}" }
             throw IllegalStateException(e.message)
         }
 

@@ -31,7 +31,7 @@ class ClassloaderWorker(private val main: Method,
         try {
             main.invoke(null, args)
         } catch (e: Exception) {
-            LOGGER.error { "Exception while running $name. $e" }
+            LOGGER.error(e) { "Exception while running $name. $e" }
             throw e
         }
     }

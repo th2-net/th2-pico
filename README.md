@@ -96,7 +96,6 @@ defaultSchemaConfigs:
   configNames:
     cradle: cradle.json
     cradleManager: cradle_manager.json
-    bookConfig: book_config.json
     grpcRouter: grpc_router.json
     mqRouter: mq_router.json
     rabbitMQ: rabbitMQ.json
@@ -211,6 +210,9 @@ If you used `ctrl+c` to stop bundle, it will shut down properly with closing all
 In case you killed pico with -9 option you need to use `shutdown.sh` script to close all resources properly.
 
 # Release notes
+
+## 0.0.4
++ Use book name from infra manager config or from component custom resource
 
 ## 0.0.3
 + added logic for destroying descendants process for run component

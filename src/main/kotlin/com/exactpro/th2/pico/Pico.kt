@@ -78,7 +78,7 @@ fun main(args: Array<String>) {
             try {
                 PicoOperator.run(OperatorRunConfig(mode, true))
             } catch (e: Exception) {
-                LOGGER.error { "Error while running operator: ${e.message}" }
+                LOGGER.error(e) { "Error while running operator: ${e.message}" }
                 return
             }
         }

@@ -22,7 +22,6 @@ defaultSchemaConfigs:
   configNames: map of <configName, configFileName.extension> for default configs that are needed for each schema
     cradle: cradle.json
     cradleManager: cradle_manager.json
-    bookConfig: book_config.json
     grpcRouter: grpc_router.json
     mqRouter: mq_router.json
     rabbitMQ: rabbitMQ.json
