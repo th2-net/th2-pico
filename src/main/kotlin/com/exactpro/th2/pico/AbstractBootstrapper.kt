@@ -45,17 +45,19 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
 
     override fun stop() {
         workerThreads.apply {
-            forEach { it.interrupt() }
+            forEach {
+                it.interrupt()
+                it.join(STOP_TIMEOUT)
+                if (it.isAlive) {
+                    LOGGER.error { "The '${it.name}' thread can't be stopped during $STOP_TIMEOUT milliseconds" }
+                }
+            }
             clear()
         }
     }
 
     override fun close() {
-        workerThreads.apply {
-            forEach { it.interrupt() }
-            clear()
-        }
-
+        stop()
         workers.apply {
             forEach { it.close() }
             clear()
@@ -75,5 +77,6 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
     companion object {
         private val logger = KotlinLogging.logger {  }
         private const val SHUTDOWN = "shutdown.sh"
+        private const val STOP_TIMEOUT = 5_000L
     }
 }

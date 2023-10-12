@@ -22,12 +22,21 @@ import com.exactpro.th2.pico.State
 import com.exactpro.th2.pico.configuration.BoxConfiguration
 import mu.KLogger
 import mu.KotlinLogging
+import org.slf4j.MDC
+import org.zeroturnaround.exec.ProcessExecutor
+import org.zeroturnaround.exec.stream.slf4j.Slf4jStream
 import java.io.File
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 import kotlin.streams.toList
+
+private const val CTX_COMPONENT_NAME_PROPERTY = "th2.pico.component.name"
+
+private const val CTX_COMPONENT_WORK_DIR_PROPERTY = "th2.pico.component.work-dir"
+private const val COMPONENT_LOGGER_NAME_PREFIX = "th2.pico.component"
 
 abstract class ShellWorker(
     private val componentFolder: File,
@@ -79,9 +88,11 @@ abstract class ShellWorker(
     }
 
     override fun run() {
+        val componentOutputStream = configureOutputStream()
+
         while (!Thread.currentThread().isInterrupted) {
             runCatching {
-                startProcess()
+                startProcess(componentOutputStream)
                 Thread.sleep(BEFORE_RESTART_INTERVAL)
             }.onFailure {
                 when (it) {
@@ -93,19 +104,54 @@ abstract class ShellWorker(
         logger.info { "Watcher thread for $name component is interrupted" }
     }
 
+    private fun configureOutputStream(): OutputStream {
+        /*
+            The code below is responsible for passing component name and dir to log context for the current thread.
+            Log4j config can resolve passed variables. User can configure `Routing Appender` to route log stream to separate files depend on the variables
+            ```
+            appender.component.type = Routing
+            appender.component.name = component_output_appender
+            appender.component.routes.type = Routes
+            appender.component.routes.pattern = ${ctx:th2.pico.component.name}
+            ...
+            appender.component.routes.dynamic_rolling_file.type = Route
+            appender.component.routes.dynamic_rolling_file.appender.type = RollingFile
+            appender.component.routes.dynamic_rolling_file.appender.fileName = ${ctx:th2.pico.component.work-dir}/logs/app.log
+            ```
+         */
+        MDC.put(CTX_COMPONENT_NAME_PROPERTY, boxConfig.boxName)
+        MDC.put(CTX_COMPONENT_WORK_DIR_PROPERTY, componentFolder.absolutePath)
+        /*
+            The logger below use constant [COMPONENT_LOGGER_NAME_PREFIX] prefix because
+             we need a specific Appender to handle sysout / syserr stream from process instead of separate log messages.
+            Hardcoded prefix simplifies log configuration
+            ```
+            logger.component.name=th2.pico.component
+            logger.component.appenderRef.routing.ref=component_output_appender
+            ```
+            This approach splits component log configuration to two parts:
+            1) Pico log configuration is responsible for log file location and its rolling configuration.
+            2) Component log configuration is responsible for log lines patten. Components should use Console Appender as usual in th2.
+         */
+        return Slf4jStream.of(KotlinLogging.logger("${COMPONENT_LOGGER_NAME_PREFIX}.${boxConfig.boxName}")).asInfo()
+    }
+
     protected abstract fun buildCommand(): List<String>
 
     protected abstract fun updateEnvironment(env: MutableMap<String, String>)
 
-    private fun startProcess() {
-        val command = listOf("bash", "-c", "`${buildCommand().joinToString(separator = " ")}`")
+    private fun startProcess(componentOutputStream: OutputStream) {
+        val command = listOf("bash", "-c", buildCommand().joinToString(separator = " "))
         logger.info { "Running command ${command.joinToString(" ")}" }
-        val processBuilder = ProcessBuilder(command)
-        processBuilder.directory(componentFolder)
-        val env = processBuilder.environment()
-        updateEnvironment(env)
+
+        val processBuilder = ProcessExecutor().command(command)
+            .directory(componentFolder)
+            .redirectOutput(componentOutputStream)
+            .readOutput(true)
+        val env = processBuilder.environment
+        updateEnvironment(processBuilder.environment)
         lock.write {
-            process = processBuilder.start()
+            process = processBuilder.start().process
         }
 
         ComponentState(name, pid = process.pid()).also {
@@ -116,7 +162,7 @@ abstract class ShellWorker(
 
         val exitCode = process.waitFor()
         if(exitCode != 0) {
-            logger.error { "$name script exited with non zero exit code. Restarting process." }
+            logger.error { "$name script exited with non zero exit code ($exitCode). Restarting process." }
             process.destroyFamily(logger, name)
             ComponentState(name,State.RESTARTING, null).also {
                 LOGGER.info { "Stopped component: $it" }
@@ -130,6 +176,10 @@ abstract class ShellWorker(
         lock.read {
             if(this::process.isInitialized) {
                 process.destroyFamily(logger, name)
+                ComponentState(name,State.STOPPED, null).also {
+                    LOGGER.info { "Stopped component: $it" }
+                    it.dumpState(stateFolder)
+                }
             }
         }
     }
