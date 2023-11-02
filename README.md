@@ -1,4 +1,4 @@
-# Pico (0.0.5)
+# Pico (0.0.6)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -30,15 +30,17 @@ This schema is example of working pico bundle which is based on [link](https://g
  -h,--help                   Displays this help message.
  -m,--mode <arg>             Operator mode to run. Possible values: full,
                              configs, none. Default: none
+ -s,--stateFolder <arg>      Absolute or relative path to the directory 
+                             for storing JSONs with state information
  -o,--components <arg>       Absolute or relative path to the directory
                              containing component files. Default: bin/components
 ```
 
 - bootstrap type - It decides how the components will be loaded. Either by multiple classloaders (`classloader`) or by shell scripts (`shell`). `classloader` will not restart components if one of them exited.
 - mode
-  - full: pico-operator will generate config files for the components and will generate rabbitMq queues and links.
-  - configs: only configs will be generated
-  - none: pico operator will not be used
+    - full: pico-operator will generate config files for the components and will generate rabbitMq queues and links.
+    - configs: only configs will be generated
+    - none: pico operator will not be used
 - components dir - path to dir where component libs and starter script is located
 
 ## Schema repo preparation
@@ -54,14 +56,14 @@ git:
   localRepositoryRoot: ..\demo_schema -- link to schema repo directory
 ```
 Arguments which was passed to the script:
-   * `local` for running locally 
-   * `my-schema` name of the directory containing th2 schema inside directory specified in the config file
-   * `v2` version to with to convert
+* `local` for running locally
+* `my-schema` name of the directory containing th2 schema inside directory specified in the config file
+* `v2` version to with to convert
 
 
 This will generate new schema directory compatible with infra v2.0 and will be later required to run bundle.
 
-Generated schema will be placed at the same level as the original schema, with name `ORIGINAL_SCHEMA_NAME-converted` 
+Generated schema will be placed at the same level as the original schema, with name `ORIGINAL_SCHEMA_NAME-converted`
 
 ## Setup and run
 ### Cassandra setup
@@ -73,8 +75,8 @@ Generated schema will be placed at the same level as the original schema, with n
 
 ### RabbitMq setup
 1. run `docker run -d --hostname th2 --name some-rabbit -e RABBITMQ_DEFAULT_VHOST=th2 -p 15672:15672 -p 5672:5672 rabbitmq:3-management`
-script for running this is located at bin directory
-This will create rabbitMq container with management plugin and default vhost `th2`, management port 15672 and default application port 5672 and guest/guest credentials.
+   script for running this is located at bin directory
+   This will create rabbitMq container with management plugin and default vhost `th2`, management port 15672 and default application port 5672 and guest/guest credentials.
 
 To see other configuration options checkout [RabbitMq docker image](https://hub.docker.com/_/rabbitmq)
 
@@ -209,11 +211,24 @@ where:
 If you used `ctrl+c` to stop bundle, it will shut down properly with closing all resources.
 In case you killed pico with -9 option you need to use `shutdown.sh` script to close all resources properly.
 
+`shutdown.sh` has several execution modes:
++ without arguments: stop all pico subprocess property
+  Script looks for actual PIDs by '.../pico/workspace/configs' pattern
++ -p/--process <PID>: stop process by PID and its child processes
++ -c/--component <component name>: stop pico component by schema name and its child processes
+  Script looks for actual PID in <starus folder>/<component name>.json file
+
 # Release notes
+
+## 0.0.6
+### Fix:
++ `shutdown.sh` script can't kill components run sub-processes gracefully
+### Feature:
++ added kill process by PID and component by name modes into `shutdown.sh`
 
 ## 0.0.5
 ### Feature:
-+ Pico captures sysout / syserr of component process 
++ Pico captures sysout / syserr of component process
 
 ### Fix:
 + Pico doesn't close some components sometimes
@@ -230,7 +245,7 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
 + added log4j2Config, log4pyConfig, zeroLogConfig config names.
 
 ### Fix:
-+ the `Started component ...` info log prints too long line. 
++ the `Started component ...` info log prints too long line.
 + conditionally using `cradle manager` and `grpc router` configs from component custom resource.
 
 ### Update:

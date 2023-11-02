@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.exactpro.th2.pico
 
 import com.exactpro.th2.pico.configuration.PicoConfiguration
 import mu.KotlinLogging
+import org.apache.commons.text.StringSubstitutor
 import java.io.File
 
 abstract class AbstractBootstrapper(private val configuration: PicoConfiguration): IBootstrap {
@@ -68,8 +69,19 @@ abstract class AbstractBootstrapper(private val configuration: PicoConfiguration
         // open file and create if not exist
         val shutdown = File(SHUTDOWN)
         shutdown.createNewFile()
+
         shutdown.printWriter().use { out ->
-            out.print("ps -ef | grep -E \"${configuration.configsDir}\" | awk '{print \$2}' | xargs kill -9")
+            val template = requireNotNull(AbstractBootstrapper::class.java.getResource("/template/script/shutdown.sh")) {
+                "Template for $STOP_TIMEOUT doesn't exist"
+            }.readText()
+            out.print(
+                StringSubstitutor.replace(
+                    template, mapOf(
+                        "PICO:COMPONENT_CONFIG_DIR" to configuration.configsDir,
+                        "PICO:STATE_DIR" to configuration.stateFolder
+                    )
+                )
+            )
         }
         shutdown.setExecutable(true)
     }
