@@ -1,4 +1,4 @@
-# Pico (0.0.6)
+# Pico (0.0.7)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -219,6 +219,11 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
   Script looks for actual PID in <starus folder>/<component name>.json file
 
 # Release notes
+
+## 0.0.7
+
+### Fix:
++ `log4j2.properties` for pico application corrected to avoid random file deletion
 
 ## 0.0.6
 ### Fix:
