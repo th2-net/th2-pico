@@ -1,4 +1,4 @@
-# Pico (0.0.7)
+# Pico (0.0.8)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -24,16 +24,20 @@ This schema is example of working pico bundle which is based on [link](https://g
 
 ## Usage
 ```
- -b,--bootstrap-type <arg>   Type of bootstrapping to use for the bundle.
-                             Possible values: shell, classloader. Default:
-                             classloader
- -h,--help                   Displays this help message.
- -m,--mode <arg>             Operator mode to run. Possible values: full,
-                             configs, none. Default: none
- -s,--stateFolder <arg>      Absolute or relative path to the directory 
-                             for storing JSONs with state information
- -o,--components <arg>       Absolute or relative path to the directory
-                             containing component files. Default: bin/components
+ -tdc,--th2-config                      Absolute or relative path to th2 configurations settings.
+ -pc,--pico-config                      Absolute or relative path to pico config.
+ -b,--bootstrap-type <arg>              Type of bootstrapping to use for the bundle.
+                                        Possible values: shell, classloader. Default:
+                                        classloader
+ -h,--help                              Displays this help message.
+ -m,--mode <arg>                        Operator mode to run. Possible values: full,
+                                        configs, none. Default: none
+ -w,--workDir                           Absolute or relative path to the work directory 
+                                        where pico manages all boxes instances.
+ -s,--stateFolder <arg>                 Absolute or relative path to the directory 
+                                        for storing JSONs with state information
+ -o,--components <arg>                  Absolute or relative path to the directory
+                                        containing component files. Default: bin/components
 ```
 
 - bootstrap type - It decides how the components will be loaded. Either by multiple classloaders (`classloader`) or by shell scripts (`shell`). `classloader` will not restart components if one of them exited.
@@ -89,7 +93,7 @@ Take one from [here](https://gitlab.exactpro.com/vivarium/th2/th2-core-proprieta
 1. put directory with box descriptions from [Prepared directory](#Schema repo preparation) into bin directory of bundle
 2. provide default configs for each box to be copied. bundle them in a separate directory. place logging files under `loggin` folder in this directory.
    Add path to location of default configs in pico operator config file.
-3. create config for operator:
+3. create `th2-default-config.yml` for operator:
 ```yaml
 schemaName: schema # name of schema
 repoLocation: path/to/repository/to/generate/configs/from
@@ -122,10 +126,30 @@ grpc: # pull of grpc ports to be used by components
     start: 8091
     end: 8189
 ```
-4. you can either put config into bin folder or specify path to it with -Dpico.operator.config path/to/config.yaml during bundle startup
+
+### optional
+
+create `pico-config.yml` config for pico and pass using `-pc/--pico-config` arguments
+```yaml
+componentConfig:
+  # auto-scaling functionality works when pico detect component crash by out of memory reason
+  #  java: jvm generate `java_pid<pid>.hprof` file after crash component.
+  #        default environment variables should include values:
+  #          JAVA_TOOL_OPTIONS: ["-XX:+ExitOnOutOfMemoryError", "-XX:+HeapDumpOnOutOfMemoryError"]
+  memoryAutoScalingConfig:
+    maxMemory: 2000 # upper limit for auto-scaling in megabytes 
+    growthFactor: 1.5 #  new values size is calculated by the formula `previous memory * growthFactor`
+  defaultEnvironmentVariables: # these environment variable are applied for each component controlled by pico 
+    JAVA_TOOL_OPTIONS:
+    - "-XX:+ExitOnOutOfMemoryError"
+    - "-XX:+HeapDumpOnOutOfMemoryError"
+    - "-Dlog4j2.shutdownHookEnabled=false"
+  beforeRestartTimeout: 5000 # timeout in milliseconds between component crash and the next start 
+```
 
 ### Run bundle
-2. run bin/pico or bin/pico -b classloader
+
+`run bin/pico or bin/pico --bootstrap-type classloader --th2-default-config th2-default-config.yml`
 
 ### Caveats
 generated `custom.json` configs can contain wrong `host/ports` or `paths` configuration to run bundle locally.
@@ -134,7 +158,6 @@ You need to check:
 1. all ports are unique
 2. all paths are correct within current system where bundle is running
 3. all hosts must be `localhost`
-
 
 # Not supported features
 - python components
@@ -219,6 +242,10 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
   Script looks for actual PID in <starus folder>/<component name>.json file
 
 # Release notes
+
+## 0.0.8
++ Added `-pc,--pico-config` and `-tdc,--th2-default-config` arguments for pico run.
++ Updated pico-operator:1.5.1-dev
 
 ## 0.0.7
 

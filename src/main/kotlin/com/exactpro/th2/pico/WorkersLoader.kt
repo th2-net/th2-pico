@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.exactpro.th2.pico
 import com.exactpro.th2.pico.classloader.ClassloaderWorker
 import com.exactpro.th2.pico.configuration.BoxConfiguration
 import com.exactpro.th2.pico.configuration.PicoConfiguration
+import com.exactpro.th2.pico.configuration.PicoSettings
 import com.exactpro.th2.pico.shell.BaseShellWorker
 import com.exactpro.th2.pico.shell.CustomExecutionConfiguration
 import com.exactpro.th2.pico.shell.CustomExecutionShellWorker
@@ -43,7 +44,7 @@ object WorkersLoader {
 
     private val LOGGER = KotlinLogging.logger {  }
 
-    fun loadClassloaderWorkers(configuration: PicoConfiguration): List<ClassloaderWorker> {
+    fun loadClassloaderWorkers(configuration: PicoSettings): List<ClassloaderWorker> {
         val workers = mutableListOf<ClassloaderWorker>()
         val componentsDir = configuration.componentsDir
         val configsDir = configuration.configsDir
@@ -61,7 +62,7 @@ object WorkersLoader {
         return workers
     }
 
-    fun loadShellWorkers(configuration: PicoConfiguration): List<ShellWorker> {
+    fun loadShellWorkers(configuration: PicoSettings): List<ShellWorker> {
         val workers = mutableListOf<ShellWorker>()
         val componentsDir = configuration.componentsDir
         val configsDir = configuration.configsDir
@@ -103,22 +104,37 @@ object WorkersLoader {
                 }
             }
 
-            val worker = loadShellWorker(configDir, boxWorkDir, boxConfig, stateFolder) ?: continue
+            val worker = loadShellWorker(
+                configDir,
+                boxWorkDir,
+                boxConfig,
+                stateFolder,
+                configuration.picoConfiguration
+            ) ?: continue
             workers.add(worker)
         }
         return workers
     }
 
-    private fun loadShellWorker(configDir: File,
-                                componentDir: File,
-                                boxConfiguration: BoxConfiguration,
-                                stateFolder: File
+    private fun loadShellWorker(
+        configDir: File,
+        componentDir: File,
+        boxConfiguration: BoxConfiguration,
+        stateFolder: File,
+        picoConfiguration: PicoConfiguration,
     ): ShellWorker? {
         componentDir.resolve(CUSTOM_EXECUTION_CONFIG).takeIf { it.exists() }?.also {
-            return createCustomShellWorker(it, boxConfiguration, configDir, stateFolder, componentDir)
+            return createCustomShellWorker(
+                it,
+                boxConfiguration,
+                configDir,
+                stateFolder,
+                componentDir,
+                picoConfiguration
+            )
         }
         val scriptDir = findDirectory(SCRIPT_DIRECTORY, componentDir) ?: kotlin.run {
-            ComponentState(boxConfiguration.boxName, State.CONFIGURATION_ERROR, null, "Could not find ${SCRIPT_DIRECTORY} directory with bash script to run.").also {
+            ComponentState(boxConfiguration.boxName, State.CONFIGURATION_ERROR, null, "Could not find $SCRIPT_DIRECTORY directory with bash script to run.").also {
                 it.dumpState(stateFolder)
             }
             return null
@@ -131,7 +147,15 @@ object WorkersLoader {
         }
         if(!scriptPath.canExecute()) giveExecutionPermissions(scriptPath)
         val arguments = getArguments(configDir, componentDir)
-        return BaseShellWorker(scriptPath, componentDir, arguments, stateFolder, boxConfiguration, configDir.absolutePath)
+        return BaseShellWorker(
+            scriptPath,
+            componentDir,
+            arguments,
+            stateFolder,
+            boxConfiguration,
+            configDir.absolutePath,
+            picoConfiguration
+        )
     }
 
     private fun createCustomShellWorker(
@@ -140,6 +164,7 @@ object WorkersLoader {
         configDir: File,
         stateFolder: File,
         componentDir: File,
+        picoConfiguration: PicoConfiguration,
     ): ShellWorker? {
         val config: CustomExecutionConfiguration = try {
             CustomExecutionConfiguration.load(customExecutionConfigFile)
@@ -162,6 +187,7 @@ object WorkersLoader {
             boxConfiguration,
             configDir.absoluteFile,
             componentDir,
+            picoConfiguration,
         )
     }
 

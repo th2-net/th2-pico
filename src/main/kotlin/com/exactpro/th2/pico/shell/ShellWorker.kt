@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.LOGGER
 import com.exactpro.th2.pico.State
 import com.exactpro.th2.pico.configuration.BoxConfiguration
+import com.exactpro.th2.pico.configuration.PicoConfiguration
 import mu.KLogger
 import mu.KotlinLogging
 import org.slf4j.MDC
@@ -29,9 +30,9 @@ import java.io.File
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import java.util.stream.Collectors
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import kotlin.streams.toList
 
 private const val CTX_COMPONENT_NAME_PROPERTY = "th2.pico.component.name"
 
@@ -39,9 +40,10 @@ private const val CTX_COMPONENT_WORK_DIR_PROPERTY = "th2.pico.component.work-dir
 private const val COMPONENT_LOGGER_NAME_PREFIX = "th2.pico.component"
 
 abstract class ShellWorker(
-    private val componentFolder: File,
+    protected val componentFolder: File,
     private val stateFolder: File,
-    protected val boxConfig: BoxConfiguration
+    protected val boxConfig: BoxConfiguration,
+    protected val picoConfiguration: PicoConfiguration,
 ): IWorker {
     private val lock = ReentrantReadWriteLock()
     private lateinit var process: Process
@@ -52,7 +54,6 @@ abstract class ShellWorker(
 
     companion object {
         private const val CLOSE_PROCESS_TIMEOUT = 30000L
-        const val BEFORE_RESTART_INTERVAL = 5000L
 
         private fun ProcessHandle.destroy(logger: KLogger, name: String) {
             val nameAndPid = "${name}.${pid()}"
@@ -68,7 +69,7 @@ abstract class ShellWorker(
         // Destroy all descendants process manually is important when pico process SIGTERM signal.
         private fun Process.destroyFamily(logger: KLogger, name: String) {
             val nameAndPid = "${name}.${pid()}"
-            val descendants = descendants().toList()
+            val descendants: List<ProcessHandle> = descendants().collect(Collectors.toList())
             if (descendants.isNotEmpty()) {
                 logger.info { "Closing descendants (${descendants.map(ProcessHandle::pid)}) processes for $nameAndPid script." }
                 descendants.forEach { descendant ->
@@ -93,7 +94,7 @@ abstract class ShellWorker(
         while (!Thread.currentThread().isInterrupted) {
             runCatching {
                 startProcess(componentOutputStream)
-                Thread.sleep(BEFORE_RESTART_INTERVAL)
+                Thread.sleep(picoConfiguration.componentConfig.beforeRestartTimeout)
             }.onFailure {
                 when (it) {
                     is InterruptedException -> Thread.currentThread().interrupt()
@@ -140,6 +141,8 @@ abstract class ShellWorker(
 
     protected abstract fun updateEnvironment(env: MutableMap<String, String>)
 
+    protected open fun onRestart(pid: Long, code: Int) { }
+
     private fun startProcess(componentOutputStream: OutputStream) {
         val command = listOf("bash", "-c", buildCommand().joinToString(separator = " "))
         logger.info { "Running command ${command.joinToString(" ")}" }
@@ -154,7 +157,8 @@ abstract class ShellWorker(
             process = processBuilder.start().process
         }
 
-        ComponentState(name, pid = process.pid()).also {
+        val pid = process.pid()
+        ComponentState(name, pid = pid).also {
             LOGGER.info { "Started component: $it" }
             LOGGER.debug { "${it.componentName} component:  (env: $env)" }
             it.dumpState(stateFolder)
@@ -168,6 +172,7 @@ abstract class ShellWorker(
                 LOGGER.info { "Stopped component: $it" }
                 it.dumpState(stateFolder)
             }
+            onRestart(pid, exitCode)
         }
     }
 

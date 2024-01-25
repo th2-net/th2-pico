@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,38 +15,44 @@
  */
 package com.exactpro.th2.pico.configuration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import mu.KotlinLogging
-import java.io.File
-import java.io.IOException
+internal const val JAVA_OPTS = "JAVA_OPTS"
+internal const val JAVA_TOOL_OPTIONS = "JAVA_TOOL_OPTIONS"
 
 data class PicoConfiguration(
-    private val componentsPath: String,
-    private val configsPath: String,
-    val workPathName: String,
-    private val stateFolderPath: String
+    val componentConfig: ComponentConfig = ComponentConfig()
+)
+
+data class ComponentConfig(
+    /** value in milliseconds */
+    val beforeRestartTimeout: Long = 5_000,
+    val memoryAutoScalingConfig: MemoryAutoScalingConfig = MemoryAutoScalingConfig(),
+    val defaultEnvironmentVariables: Map<String, Set<String>> = mapOf(
+        JAVA_TOOL_OPTIONS to setOf(
+            "-XX:+ExitOnOutOfMemoryError",
+            "-XX:+HeapDumpOnOutOfMemoryError",
+            "-Dlog4j2.shutdownHookEnabled=false",
+        )
+    ),
+)
+
+/**
+ * auto-scaling functionality works when pico detect component crash by out of memory reason
+ *  java: jvm generate `java_pid<pid>.hprof` file after crash component.
+ *        default environment variables should include values:
+ *          JAVA_TOOL_OPTIONS: ["-XX:+ExitOnOutOfMemoryError", "-XX:+HeapDumpOnOutOfMemoryError"]
+ */
+data class MemoryAutoScalingConfig(
+    /** value in MB */
+    val maxMemory: Int = 2_000,
+    /** new values size is calculated by the formula `previous memory * growthFactor */
+    val growthFactor: Double = 1.5,
 ) {
-    val componentsDir: File by lazy { findPath(componentsPath) {"Not found components dir by path: $componentsPath"} }
-    val configsDir: File by lazy { findPath(configsPath) {"Not found configs dir by path: $configsPath"} }
-    val stateFolder: File by lazy { File(stateFolderPath).also { if(!it.exists()) it.mkdirs() } }
-
-    private fun findPath(path: String, message: () -> String): File {
-        val absolute = File(System.getProperty("user.dir") + File.separator + File(path))
-        if(absolute.exists()) {
-            return absolute
+    init {
+        require(maxMemory > 0) {
+            "max memory should be positive, current value is $maxMemory"
         }
-        val relative = File(path)
-        if(relative.exists()) {
-            return relative
+        require(growthFactor > 1) {
+            "factor should be grater than 1, current value is $growthFactor"
         }
-        throw IllegalStateException(message.invoke())
-    }
-
-    companion object {
-
-        val DEFAULT_COMPONENTS_DIR = System.getProperty("user.dir") + File.separator + "components" + File.separator
-        val DEFAULT_STATE_FOLDER = System.getProperty("user.dir") + File.separator + "states" + File.separator
-        val DEFAULT_CONFIGS_DIR = System.getProperty("user.dir") + File.separator + "configs" + File.separator
     }
 }

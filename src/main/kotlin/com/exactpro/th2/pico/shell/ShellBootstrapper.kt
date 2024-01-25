@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package com.exactpro.th2.pico.shell
 import com.exactpro.th2.pico.AbstractBootstrapper
 import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.WorkersLoader
-import com.exactpro.th2.pico.configuration.PicoConfiguration
+import com.exactpro.th2.pico.configuration.PicoSettings
 
-class ShellBootstrapper(private val config: PicoConfiguration): AbstractBootstrapper(config) {
+class ShellBootstrapper(private val config: PicoSettings): AbstractBootstrapper(config) {
     override fun populateThreadsList() {
         for (worker in workers) {
             check(worker is ShellWorker)

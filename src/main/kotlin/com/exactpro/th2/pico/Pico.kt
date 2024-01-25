@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,17 @@ package com.exactpro.th2.pico
 
 import com.exactpro.th2.pico.classloader.ClassloaderBootstrapper
 import com.exactpro.th2.pico.configuration.PicoConfiguration
-import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_COMPONENTS_DIR
-import com.exactpro.th2.pico.configuration.PicoConfiguration.Companion.DEFAULT_STATE_FOLDER
+import com.exactpro.th2.pico.configuration.PicoSettings
+import com.exactpro.th2.pico.configuration.PicoSettings.Companion.DEFAULT_COMPONENTS_DIR
+import com.exactpro.th2.pico.configuration.PicoSettings.Companion.DEFAULT_STATE_FOLDER
+import com.exactpro.th2.pico.operator.CONFIG_FILE_NAME
+import com.exactpro.th2.pico.operator.CONFIG_FILE_SYSTEM_PROPERTY
 import com.exactpro.th2.pico.operator.PicoOperator
+import com.exactpro.th2.pico.operator.config.ConfigLoader
 import com.exactpro.th2.pico.operator.config.OperatorRunConfig
-import com.exactpro.th2.pico.operator.configDir
+import com.exactpro.th2.pico.operator.util.Mapper
 import com.exactpro.th2.pico.shell.ShellBootstrapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import mu.KotlinLogging
 import org.apache.commons.cli.CommandLineParser
 import org.apache.commons.cli.DefaultParser
@@ -31,6 +36,9 @@ import org.apache.commons.cli.Option
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
 import java.io.File
+import java.nio.file.Path
+import java.nio.file.Paths
+import kotlin.io.path.inputStream
 import kotlin.system.exitProcess
 
 
@@ -38,13 +46,52 @@ fun main(args: Array<String>) {
     LOGGER.info { "Pico is starting, user dir: ${System.getProperty("user.dir")}" }
     val options = Options()
 
-    val componentsOption = Option("o", "components", true, "Absolute or relative path to the directory containing component files.")
-    val workDirectoryNameOption = Option("w", "workDir", true, "Absolute or relative path to the work directory where pico manages all boxes instances.")
-    val stateFolderOption = Option("s", "stateFolder", true, "Absolute or relative path to directory where component states will be published.")
-    val operatorMode = Option("m", "mode", true, "Operator mode to run. Possible values: full, configs, none. Default: none")
-    val bootstrapType = Option("b", "bootstrap-type", true, "Type of bootstrapping to use for the bundle. Possible values: shell, classloader. Default: classloader")
+    val th2ConfigOption = Option(
+        "tdc",
+        "th2-default-config",
+        true,
+        "Absolute or relative path to th2 configurations settings."
+    )
+    val picoConfig = Option(
+        "pc",
+        "pico-config",
+        true,
+        "Absolute or relative path to default environment variables config."
+    )
+    val componentsOption = Option(
+        "o",
+        "components",
+        true,
+        "Absolute or relative path to the directory containing component files."
+    )
+    val workDirectoryNameOption = Option(
+        "w",
+        "workDir",
+        true,
+        "Absolute or relative path to the work directory where pico manages all boxes instances."
+    )
+    val stateFolderOption = Option(
+        "s",
+        "stateFolder",
+        true,
+        "Absolute or relative path to directory where component states will be published."
+    )
+    val operatorMode = Option(
+        "m",
+        "mode",
+        true,
+        "Operator mode to run. Possible values: full, configs, none. Default: none"
+    )
+    val bootstrapType = Option(
+        "b",
+        "bootstrap-type",
+        true,
+        "Type of bootstrapping to use for the bundle. Possible values: shell, classloader. Default: classloader"
+    )
     val helpOption = Option("h", "help", false, "Displays this help message.")
 
+    options.addOption(th2ConfigOption)
+    options.addOption(picoConfig)
     options.addOption(componentsOption)
     options.addOption(workDirectoryNameOption)
     options.addOption(stateFolderOption)
@@ -62,7 +109,7 @@ fun main(args: Array<String>) {
             return
         }
         val componentsDir = if(cmdArgs.hasOption(componentsOption)) {
-            cmdArgs.getOptionValue(componentsOption)
+            Path.of(cmdArgs.getOptionValue(componentsOption))
         } else DEFAULT_COMPONENTS_DIR
 
         val workDirName = if(cmdArgs.hasOption(workDirectoryNameOption)) {
@@ -70,17 +117,34 @@ fun main(args: Array<String>) {
         } else WORKING_DIR
 
         val stateFolder = if(cmdArgs.hasOption(stateFolderOption)) {
-            cmdArgs.getOptionValue(stateFolderOption)
+            Path.of(cmdArgs.getOptionValue(stateFolderOption))
         } else DEFAULT_STATE_FOLDER
+
+        val th2config = if (cmdArgs.hasOption(th2ConfigOption)) {
+            cmdArgs.getOptionValue(th2ConfigOption)
+        } else {
+            // logic for backward compatible
+            System.getProperty(
+                CONFIG_FILE_SYSTEM_PROPERTY,
+                CONFIG_FILE_NAME
+            )
+        }
+        val appConfig = Paths.get(th2config).inputStream().use(ConfigLoader::loadConfiguration)
 
         if(cmdArgs.hasOption(operatorMode)) {
             val mode = cmdArgs.getOptionValue(operatorMode)
             try {
-                PicoOperator.run(OperatorRunConfig(mode, true))
+                PicoOperator(appConfig).run(OperatorRunConfig(mode, true))
             } catch (e: Exception) {
                 LOGGER.error(e) { "Error while running operator: ${e.message}" }
                 return
             }
+        }
+
+        val picoConfiguration: PicoConfiguration = if (cmdArgs.hasOption(picoConfig)) {
+            Path.of(cmdArgs.getOptionValue(picoConfig)).inputStream().use(Mapper.YAML_MAPPER::readValue)
+        } else {
+            PicoConfiguration()
         }
 
         val workDirFile = File(workDirName)
@@ -88,9 +152,19 @@ fun main(args: Array<String>) {
             workDirFile.mkdirs()
         }
 
-        val configuration = PicoConfiguration(componentsDir, configDir, workDirName, stateFolder)
+        val configuration = PicoSettings(
+            componentsDir,
+            appConfig.generatedConfigsLocation,
+            workDirName,
+            stateFolder,
+            picoConfiguration
+        )
 
-        val bootstrapTypeValue = if(!cmdArgs.hasOption(bootstrapType)) "shell" else cmdArgs.getOptionValue(bootstrapType)
+        val bootstrapTypeValue = if(!cmdArgs.hasOption(bootstrapType)) {
+            "shell"
+        } else {
+            cmdArgs.getOptionValue(bootstrapType)
+        }
 
         val bootstrapper = when(bootstrapTypeValue) {
             "classloader" -> ClassloaderBootstrapper(configuration)

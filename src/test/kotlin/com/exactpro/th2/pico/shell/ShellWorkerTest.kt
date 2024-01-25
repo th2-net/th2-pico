@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.exactpro.th2.pico.shell
 
 import com.exactpro.th2.pico.IWorker
 import com.exactpro.th2.pico.configuration.BoxConfiguration
+import com.exactpro.th2.pico.configuration.PicoConfiguration
 import org.apache.commons.io.FileUtils
 import org.awaitility.kotlin.await
 import org.awaitility.kotlin.until
@@ -27,7 +28,6 @@ import org.junit.jupiter.api.Timeout
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.exists
 import kotlin.io.path.readText
 
 class ShellWorkerTest {
@@ -102,7 +102,8 @@ class ShellWorkerTest {
     ) : ShellWorker(
         componentFolder,
         stateFolder,
-        boxConfig
+        boxConfig,
+        PicoConfiguration(),
     ) {
         override fun buildCommand(): List<String> = listOf("echo", boxConfig.boxName, ";", "sleep", "999")
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.exactpro.th2.pico.shell
 
 import com.exactpro.th2.pico.configuration.BoxConfiguration
+import com.exactpro.th2.pico.configuration.PicoConfiguration
 import org.apache.commons.text.StringSubstitutor
 import java.io.File
 
@@ -26,10 +27,12 @@ class CustomExecutionShellWorker(
     boxConfig: BoxConfiguration,
     configsDirectory: File,
     componentDir: File,
+    picoConfiguration: PicoConfiguration,
 ) : ShellWorker(
     stateFolder = stateFolder,
     boxConfig = boxConfig,
     componentFolder = componentDir,
+    picoConfiguration = picoConfiguration,
 ) {
     init {
         require(config.command.isNotEmpty()) { "commands list must not be empty" }
