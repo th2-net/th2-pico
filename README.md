@@ -1,4 +1,4 @@
-# Pico (0.0.8)
+# Pico (0.0.9)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -242,6 +242,10 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
   Script looks for actual PID in <starus folder>/<component name>.json file
 
 # Release notes
+
+## 0.0.9
++ Fixed the pico copies default `cradle_manager.json` config instead of generated problem
++ Updated pico-operator:1.5.2-dev
 
 ## 0.0.8
 + Added `-pc,--pico-config` and `-tdc,--th2-default-config` arguments for pico run.
