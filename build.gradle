@@ -1,23 +1,18 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import com.github.jk1.license.render.*
-
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'java'
     id 'application'
-    id 'com.github.jk1.dependency-license-report'
-}
-
-ext {
-    slf4jVersion        = '2.0.3'
-    log4jVersion        = '2.19.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
+    id 'com.exactpro.th2.gradle.component' version '0.0.8'
 }
 
 group 'com.exactpro.th2'
 version release_version
 
+kotlin {
+    jvmToolchain(11)
+}
+
 repositories {
+    mavenCentral()
     maven {
         name 'Sonatype_snapshots'
         url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
@@ -31,30 +26,27 @@ repositories {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
-    mavenCentral()
 }
 
 dependencies {
     api platform('com.fasterxml.jackson:jackson-bom:2.14.0')
     // https://mvnrepository.com/artifact/commons-cli/commons-cli
-    implementation 'commons-cli:commons-cli:1.5.0'
-    implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
+    implementation 'commons-cli:commons-cli'
+    implementation 'commons-io:commons-io'
 
     implementation('com.exactpro.th2:pico-operator:1.5.2-dev') {
         exclude group: 'org.junit.jupiter'
         exclude group: 'org.junit'
         exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+        exclude group: 'com.squareup.okhttp3', module: 'logging-interceptor'
     }
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.jetbrains.kotlin:kotlin-reflect"
-    implementation "io.github.microutils:kotlin-logging:2.0.10"
+    implementation "io.github.microutils:kotlin-logging:3.0.5"
 
-    implementation("org.slf4j:slf4j-api:${slf4jVersion}")
-    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:${log4jVersion}")
-    implementation("org.apache.logging.log4j:log4j-1.2-api:${log4jVersion}")
-    implementation("org.apache.logging.log4j:log4j-api:${log4jVersion}")
-    implementation("org.apache.logging.log4j:log4j-core:${log4jVersion}")
+    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl'
+    implementation 'org.apache.logging.log4j:log4j-core'
 
     implementation("org.zeroturnaround:zt-exec:1.12") {
         because("Pico routs component output into separate log files")
@@ -67,9 +59,9 @@ dependencies {
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
-    implementation "org.apache.commons:commons-text:1.10.0"
+    implementation "org.apache.commons:commons-text"
 
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 
@@ -82,8 +74,8 @@ configurations {
   runtime.exclude group: 'org.junit'
 }
 
-applicationName = 'pico'
 application {
+    applicationName = 'pico'
     mainClass.set("com.exactpro.th2.pico.PicoKt")
     applicationDefaultJvmArgs = ['-Dpico.operator.config=../cfg/config.yml']
 }
@@ -102,24 +94,6 @@ distributions {
     }
 }
 
-tasks.withType(KotlinCompile).configureEach {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_11)
-    }
-}
-
 test {
     useJUnitPlatform()
-}
-dependencyLocking {
-    lockAllConfigurations()
-}
-
-licenseReport {
-    renderers = [
-        new XmlReportRenderer("${project.name}-licenses.xml"),
-        new CsvCustomReportRenderer("${project.name}-licenses.csv"),
-        new JsonReportRenderer("${project.name}-licenses.json"),
-        new InventoryHtmlReportRenderer("${project.name}-licenses.html")
-    ]
 }

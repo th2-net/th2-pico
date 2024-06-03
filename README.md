@@ -1,4 +1,4 @@
-# Pico (0.0.9)
+# Pico (0.0.10)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -242,6 +242,17 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
   Script looks for actual PID in <starus folder>/<component name>.json file
 
 # Release notes
+
+## 0.0.10
++ Migrated to th2 gradle plugin `0.0.8`
++ Migrated to th2 bom: `4.6.1
++ Updated:
+  + commons-cli: `1.6.0`
+  + commons-io: `2.15.1`
+  + kotlin-logging: `3.0.5`
+  + slf4j = `2.0.7`
+    log4j = `2.23.0`
+  + commons-text: `1.11.0`
 
 ## 0.0.9
 + Fixed the pico copies default `cradle_manager.json` config instead of generated problem

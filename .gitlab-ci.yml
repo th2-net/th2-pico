@@ -1,6 +1,7 @@
-image: openjdk:11
+image: adoptopenjdk/openjdk11:alpine
 
 stages:
+  - scan
   - publish
 
 variables:
@@ -9,6 +10,40 @@ variables:
 before_script:
   - chmod +x ./gradlew
   - export GRADLE_USER_HOME=`pwd`/.gradle
+
+owasp:
+  stage: scan
+  tags:
+    - vln-dind
+  script:
+    - ./gradlew dependencyCheckAggregate -PnvdApiKey=${NVD_APIkey}
+
+license-check:
+  stage: scan
+  tags:
+    - vln-dind
+  script:
+    - echo 'Install util tools'
+    - apk update
+    - apk add --update-cache jq wget bash
+    - echo 'Download check_licenses.sh'
+    - wget -q -O check_licenses.sh https://raw.githubusercontent.com/th2-net/.github/main/license-compliance/check_licenses.sh
+    - chmod +x ./check_licenses.sh
+    - ./check_licenses.sh java
+    - line_count=$(wc -l < ./licenses_check/failed_licenses.csv)
+    - |
+      if [[ $line_count -ge 1 ]]; then
+        echo "FAILED due to unknown/failed licenses found"
+        exit 1
+      else
+        echo "PASSED: licenses check successfull"
+        exit 0
+      fi
+  artifacts:
+    when: always
+    expire_in: "1 week"
+    paths:
+      - licenses_check/
 
 distribution:
   stage: publish
