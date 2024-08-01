@@ -150,7 +150,6 @@ abstract class ShellWorker(
         val processBuilder = ProcessExecutor().command(command)
             .directory(componentFolder)
             .redirectOutput(componentOutputStream)
-            .readOutput(true)
         val env = processBuilder.environment
         updateEnvironment(processBuilder.environment)
         lock.write {

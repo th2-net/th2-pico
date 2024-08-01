@@ -1,4 +1,4 @@
-# Pico (0.0.10)
+# Pico (0.0.11)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -242,6 +242,15 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
   Script looks for actual PID in <starus folder>/<component name>.json file
 
 # Release notes
+
+## 0.0.11
+
+### Fix:
++ Fixed bug: Fixed bug: OutOfMemory due to keeping all component's output in memory
+
+### Update:
++ Migrated to th2 gradle plugin `0.1.1`
++ pico-operator `1.7.0-dev`
 
 ## 0.0.10
 + Migrated to th2 gradle plugin `0.0.8`
