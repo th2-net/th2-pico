@@ -57,7 +57,11 @@ class ShellWorkerTest {
                 val componentFile = componentPath.toFile()
 
                 assertTrue(componentFile.mkdirs())
-                val component = TestShellWorker(componentFile, TEST_STATE_FOLDER.toFile(), BoxConfiguration(componentName))
+                val component = TestShellWorker(
+                    componentFile,
+                    TEST_STATE_FOLDER.toFile(),
+                    BoxConfiguration(componentName)
+                )
                 val thread = Thread(component)
 
                 components.add(ComponentMetadata(
@@ -71,7 +75,7 @@ class ShellWorkerTest {
             }
 
             components.forEach { component ->
-                val logFile = component.path.resolve(Path.of("logs", "app.log"))
+                val logFile = component.path.resolve(Path.of("logs", "system.log"))
                 await until {
                     logFile.readText() == "${component.name}${System.lineSeparator()}"
                 }
@@ -110,6 +114,5 @@ class ShellWorkerTest {
         override fun updateEnvironment(env: MutableMap<String, String>) {
             // do nothing
         }
-
     }
 }

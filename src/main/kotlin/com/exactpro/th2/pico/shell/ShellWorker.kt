@@ -59,7 +59,10 @@ abstract class ShellWorker(
             val nameAndPid = "${name}.${pid()}"
             destroy()
             if (!destroy()) {
-                logger.info { "$nameAndPid descendant process couldn't stopped during $CLOSE_PROCESS_TIMEOUT, $MILLISECONDS. Closing process forcibly" }
+                logger.info {
+                    "$nameAndPid descendant process couldn't stopped during $CLOSE_PROCESS_TIMEOUT, " +
+                            "$MILLISECONDS. Closing process forcibly"
+                }
                 destroyForcibly()
                 return
             }
@@ -71,7 +74,9 @@ abstract class ShellWorker(
             val nameAndPid = "${name}.${pid()}"
             val descendants: List<ProcessHandle> = descendants().collect(Collectors.toList())
             if (descendants.isNotEmpty()) {
-                logger.info { "Closing descendants (${descendants.map(ProcessHandle::pid)}) processes for $nameAndPid script." }
+                logger.info {
+                    "Closing descendants (${descendants.map(ProcessHandle::pid)}) processes for $nameAndPid script."
+                }
                 descendants.forEach { descendant ->
                     descendant.destroy(logger, nameAndPid)
                 }
@@ -80,7 +85,9 @@ abstract class ShellWorker(
             logger.info { "Closing $nameAndPid script." }
             destroy()
             if (!waitFor(CLOSE_PROCESS_TIMEOUT, MILLISECONDS)) {
-                logger.info { "$nameAndPid script during $CLOSE_PROCESS_TIMEOUT, $MILLISECONDS. Closing process forcibly" }
+                logger.info {
+                    "$nameAndPid script during $CLOSE_PROCESS_TIMEOUT, $MILLISECONDS. Closing process forcibly"
+                }
                 destroyForcibly()
                 return
             }
