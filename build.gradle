@@ -1,15 +1,15 @@
 plugins {
     id 'application'
     id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'com.exactpro.th2.gradle.component' version '0.1.1'
+    id 'com.exactpro.th2.gradle.component' version '0.1.6'
+    id 'com.exactpro.th2.gradle.publish' version '0.1.6'
+    id 'maven-publish'
 }
 
 group 'com.exactpro.th2'
 version release_version
 
-kotlin {
-    jvmToolchain(11)
-}
+kotlin.jvmToolchain(11)
 
 repositories {
     mavenCentral()
@@ -29,7 +29,7 @@ repositories {
 }
 
 dependencies {
-    api platform('com.fasterxml.jackson:jackson-bom:2.17.2')
+    api platform('com.fasterxml.jackson:jackson-bom:2.18.2')
     implementation 'commons-cli:commons-cli'
     implementation 'commons-io:commons-io'
 
@@ -60,11 +60,11 @@ dependencies {
 
     implementation "org.apache.commons:commons-text"
 
-    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 
-    testImplementation 'org.awaitility:awaitility-kotlin:4.2.1'
+    testImplementation 'org.awaitility:awaitility-kotlin:4.2.2'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.4.0'
 }
 
@@ -93,6 +93,4 @@ distributions {
     }
 }
 
-test {
-    useJUnitPlatform()
-}
+test.useJUnitPlatform()

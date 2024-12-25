@@ -1,4 +1,4 @@
-# Pico (0.0.12)
+# Pico (0.0.13)
 Tool for bootstrapping th2 components locally.
 
 ## Demo
@@ -243,15 +243,17 @@ In case you killed pico with -9 option you need to use `shutdown.sh` script to c
 
 # Release notes
 
+## 0.0.13
++ Migrated to th2 gradle plugin `0.1.6`
+
 ## 0.0.12
 + Replaced Console to Rolling file appender in default log4j2.properties
     + Components write log to `logs/app.log` file
     + Pico writes system output/error to `logs/system.log` file
 
 ## 0.0.11
-
 ### Fix:
-+ Fixed bug: Fixed bug: OutOfMemory due to keeping all component's output in memory
++ Fixed bug: OutOfMemory due to keeping all component's output in memory
 
 ### Update:
 + Migrated to th2 gradle plugin `0.1.1`
